@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Panel — Asistencia QR</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="contenedor-ancho">
+    <div class="topbar">
+      <h1 style="margin:0;">Asistencia QR</h1>
+      <nav>
+        <a href="/admin">Hoy</a>
+        <a href="/admin/historial">Historial</a>
+        <a href="#" id="logout-link">Salir</a>
+      </nav>
+    </div>
+
+    <div class="tarjeta" style="text-align:center;">
+      <h2>Código de hoy (<span id="fecha-hoy">—</span>)</h2>
+      <img id="qr-img" class="qr-imagen" src="/api/admin/qr/today.png" alt="Codigo QR del dia" />
+      <div class="token-url" id="url-checkin">—</div>
+      <div class="fila-acciones" style="justify-content:center;">
+        <button id="regenerar-btn" class="secundario">Invalidar y generar nuevo código</button>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Asistencia de hoy <span id="contador-hoy" style="color:#666; font-weight:normal;"></span></h2>
+      <table>
+        <thead>
+          <tr><th>Nombre</th><th>DNI</th><th>Hora</th></tr>
+        </thead>
+        <tbody id="tabla-hoy">
+          <tr><td colspan="3">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/js/admin-dashboard.js"></script>
+</body>
+</html>

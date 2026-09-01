@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Historial — Asistencia QR</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="contenedor-ancho">
+    <div class="topbar">
+      <h1 style="margin:0;">Asistencia QR</h1>
+      <nav>
+        <a href="/admin">Hoy</a>
+        <a href="/admin/historial">Historial</a>
+        <a href="#" id="logout-link">Salir</a>
+      </nav>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Historial por fecha</h2>
+      <div class="fila-acciones">
+        <input type="date" id="fecha-input" style="max-width:180px; margin:0;" />
+        <button id="buscar-btn">Buscar</button>
+        <a id="export-link" class="boton secundario" href="#">Exportar CSV</a>
+      </div>
+      <table>
+        <thead>
+          <tr><th>Nombre</th><th>DNI</th><th>Hora</th></tr>
+        </thead>
+        <tbody id="tabla-historial">
+          <tr><td colspan="3">Elige una fecha</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/js/admin-historial.js"></script>
+</body>
+</html>

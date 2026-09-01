@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marcar asistencia</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="contenedor">
+    <div class="tarjeta" style="margin-top: 40px;">
+      <h1>Marcar asistencia</h1>
+      <p class="subtitulo">Es la primera vez que usas este celular. Ingresa tus datos.</p>
+
+      <% if (typeof error !== 'undefined' && error) { %>
+        <div class="error"><%= error %></div>
+      <% } %>
+
+      <form method="POST" action="/checkin/<%= token %>">
+        <label for="nombre">Nombre completo</label>
+        <input type="text" id="nombre" name="nombre" required minlength="3" autocomplete="name" />
+
+        <label for="dni">DNI (8 dígitos)</label>
+        <input type="text" id="dni" name="dni" required pattern="\d{8}" inputmode="numeric" maxlength="8" autocomplete="off" />
+
+        <button type="submit" style="width:100%;">Marcar asistencia</button>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

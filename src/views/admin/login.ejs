@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ingresar — Asistencia QR</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="contenedor">
+    <div class="tarjeta" style="margin-top: 60px;">
+      <h1>Panel de administrador</h1>
+      <p class="subtitulo">Ingresa con tu email y password</p>
+      <div id="error-box"></div>
+      <form id="login-form">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" required autocomplete="username" />
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password" />
+        <button type="submit" id="submit-btn" style="width:100%;">Ingresar</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('login-form');
+    const errorBox = document.getElementById('error-box');
+    const submitBtn = document.getElementById('submit-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      errorBox.innerHTML = '';
+      submitBtn.disabled = true;
+
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+
+      try {
+        const resp = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        if (!resp.ok) {
+          const data = await resp.json().catch(() => ({}));
+          errorBox.innerHTML = `<div class="error">${data.error || 'No se pudo iniciar sesion'}</div>`;
+          submitBtn.disabled = false;
+          return;
+        }
+
+        window.location.href = '/admin';
+      } catch (err) {
+        errorBox.innerHTML = '<div class="error">Error de conexion, intenta de nuevo.</div>';
+        submitBtn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

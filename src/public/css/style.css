@@ -1,0 +1,97 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f4f5f7;
+  color: #1a1a1a;
+}
+
+.contenedor {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.contenedor-ancho {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.tarjeta {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 16px;
+}
+
+h1 { font-size: 1.4rem; margin: 0 0 4px; }
+h2 { font-size: 1.1rem; margin: 0 0 12px; }
+p.subtitulo { color: #666; margin: 0 0 20px; }
+
+label { display: block; font-size: 0.9rem; margin-bottom: 4px; color: #333; }
+
+input[type="text"],
+input[type="email"],
+input[type="password"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 1rem;
+  margin-bottom: 16px;
+}
+
+button, .boton {
+  display: inline-block;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  font-size: 1rem;
+  cursor: pointer;
+  text-decoration: none;
+  text-align: center;
+}
+
+button.secundario, .boton.secundario {
+  background: #e5e7eb;
+  color: #1a1a1a;
+}
+
+button:disabled { opacity: 0.6; cursor: default; }
+
+.error {
+  background: #fef2f2;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 0.9rem;
+}
+
+.exito { color: #15803d; }
+
+.estado-icono { font-size: 3rem; margin-bottom: 8px; }
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.topbar nav a { margin-right: 16px; color: #2563eb; text-decoration: none; font-size: 0.9rem; }
+
+.qr-imagen { display: block; margin: 0 auto 16px; width: 220px; height: 220px; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee; }
+th { color: #666; font-weight: 600; }
+
+.fila-acciones { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+
+.token-url { font-size: 0.8rem; color: #666; word-break: break-all; text-align: center; margin-bottom: 16px; }
