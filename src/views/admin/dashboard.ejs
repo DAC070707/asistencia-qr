@@ -3,21 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Panel — Asistencia QR</title>
+  <title>Panel — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <div class="contenedor-ancho">
-    <div class="topbar">
-      <h1 style="margin:0;">Asistencia QR</h1>
-      <nav>
-        <a href="/admin">Hoy</a>
-        <a href="/admin/historial">Historial</a>
-        <a href="/admin/trabajadores">Trabajadores</a>
-        <a href="#" id="logout-link">Salir</a>
-      </nav>
-    </div>
+  <%- include('../partials/header', {
+    navHome: '/admin',
+    navLinks: [
+      { href: '/admin', texto: 'Hoy' },
+      { href: '/admin/historial', texto: 'Historial' },
+      { href: '/admin/trabajadores', texto: 'Trabajadores' },
+      { href: '#', texto: 'Salir', id: 'logout-link' }
+    ],
+    logoEmpresaUrl: logoEmpresaUrl
+  }) %>
 
+  <div class="contenedor-ancho">
     <div class="tarjeta" style="text-align:center;">
       <h2>Código de hoy (<span id="fecha-hoy">—</span>)</h2>
       <img id="qr-img" class="qr-imagen" src="/api/admin/qr/today.png" alt="Codigo QR del dia" />
@@ -25,6 +26,17 @@
       <div class="fila-acciones" style="justify-content:center;">
         <button id="regenerar-btn" class="secundario">Invalidar y generar nuevo código</button>
       </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Logo de tu empresa</h2>
+      <p class="subtitulo">Aparece a la derecha del logo de DANA en la parte superior del panel. Formatos: PNG, JPG, WEBP o SVG, máximo 2MB.</p>
+      <div class="fila-acciones">
+        <img id="logo-preview" src="<%= logoEmpresaUrl %>" alt="" style="height:40px; max-width:160px; object-fit:contain;" onerror="this.style.display='none'" />
+        <input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+        <button id="logo-btn" class="secundario">Subir logo</button>
+      </div>
+      <div id="logo-error"></div>
     </div>
 
     <div class="tarjeta">
@@ -39,6 +51,8 @@
       </table>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 
   <script src="/js/admin-dashboard.js"></script>
 </body>

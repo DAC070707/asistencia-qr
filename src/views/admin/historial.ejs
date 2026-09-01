@@ -3,21 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Historial — Asistencia QR</title>
+  <title>Historial — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <div class="contenedor-ancho">
-    <div class="topbar">
-      <h1 style="margin:0;">Asistencia QR</h1>
-      <nav>
-        <a href="/admin">Hoy</a>
-        <a href="/admin/historial">Historial</a>
-        <a href="/admin/trabajadores">Trabajadores</a>
-        <a href="#" id="logout-link">Salir</a>
-      </nav>
-    </div>
+  <%- include('../partials/header', {
+    navHome: '/admin',
+    navLinks: [
+      { href: '/admin', texto: 'Hoy' },
+      { href: '/admin/historial', texto: 'Historial' },
+      { href: '/admin/trabajadores', texto: 'Trabajadores' },
+      { href: '#', texto: 'Salir', id: 'logout-link' }
+    ],
+    logoEmpresaUrl: logoEmpresaUrl
+  }) %>
 
+  <div class="contenedor-ancho">
     <div class="tarjeta">
       <h2>Historial por fecha</h2>
       <p class="subtitulo">Click en una hora para corregirla. Las horas extra requieren tu aprobación para contar como válidas.</p>
@@ -41,6 +42,8 @@
       </div>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 
   <script src="/js/admin-historial.js"></script>
 </body>

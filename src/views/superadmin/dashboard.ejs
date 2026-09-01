@@ -3,18 +3,16 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Empresas — Súper-admin</title>
+  <title>Empresas — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <div class="contenedor-ancho">
-    <div class="topbar">
-      <h1 style="margin:0;">Súper-admin</h1>
-      <nav>
-        <a href="#" id="logout-link">Salir</a>
-      </nav>
-    </div>
+  <%- include('../partials/header', {
+    navHome: '/superadmin',
+    navLinks: [{ href: '#', texto: 'Salir', id: 'logout-link' }]
+  }) %>
 
+  <div class="contenedor-ancho">
     <div class="tarjeta">
       <h2>Nueva empresa</h2>
       <div id="crear-error"></div>
@@ -41,6 +39,8 @@
       </table>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 
   <script src="/js/superadmin-dashboard.js"></script>
 </body>

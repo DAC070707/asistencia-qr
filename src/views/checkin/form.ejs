@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Marcar asistencia</title>
+  <title>Marcar asistencia — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
+  <%- include('../partials/header', { logoEmpresaUrl: typeof logoEmpresaUrl !== 'undefined' ? logoEmpresaUrl : null }) %>
+
   <div class="contenedor">
-    <div class="tarjeta" style="margin-top: 40px;">
+    <div class="tarjeta" style="margin-top: 24px;">
       <h1>Marcar asistencia</h1>
       <p class="subtitulo">Es la primera vez que usas este celular. Ingresa tus datos.</p>
 
@@ -27,5 +29,7 @@
       </form>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 </body>
 </html>

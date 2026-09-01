@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Mi historial</title>
+  <title>Mi historial — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
+  <%- include('../partials/header', { logoEmpresaUrl: logoEmpresaUrl }) %>
+
   <div class="contenedor">
     <div class="tarjeta" style="margin-top: 24px;">
       <h1>Hola, <%= nombre %></h1>
@@ -53,5 +55,7 @@
       <% } %>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 </body>
 </html>

@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Ingresar — Asistencia QR</title>
+  <title>Ingresar — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
+  <%- include('../partials/header') %>
+
   <div class="contenedor">
-    <div class="tarjeta" style="margin-top: 60px;">
+    <div class="tarjeta" style="margin-top: 40px;">
       <h1>Panel de administrador</h1>
       <p class="subtitulo">Ingresa con tu email y password</p>
       <div id="error-box"></div>
@@ -21,6 +23,8 @@
       </form>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 
   <script>
     const form = document.getElementById('login-form');

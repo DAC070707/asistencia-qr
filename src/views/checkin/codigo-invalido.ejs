@@ -3,16 +3,20 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Código inválido</title>
+  <title>Código inválido — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
+  <%- include('../partials/header') %>
+
   <div class="contenedor">
-    <div class="tarjeta" style="margin-top: 60px; text-align:center;">
+    <div class="tarjeta" style="margin-top: 40px; text-align:center;">
       <div class="estado-icono">⚠️</div>
       <h1>Este código ya no es válido</h1>
       <p class="subtitulo">El código QR corresponde a un día anterior o fue invalidado. Pide el código del día actual al administrador.</p>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 </body>
 </html>

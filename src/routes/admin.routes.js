@@ -1,9 +1,19 @@
 const express = require('express');
+const multer = require('multer');
 const adminController = require('../controllers/admin.controller');
 const requireAdminAuth = require('../middleware/requireAdminAuth');
 const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
+
+const MIME_LOGO_PERMITIDOS = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+const uploadLogo = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 2 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    cb(null, MIME_LOGO_PERMITIDOS.includes(file.mimetype));
+  }
+});
 
 // Paginas (EJS)
 router.get('/admin/login', adminController.paginaLogin);
@@ -54,5 +64,14 @@ router.post(
   requireAdminAuth,
   asyncHandler(adminController.cambiarEstadoHorasExtra)
 );
+router.post(
+  '/api/admin/empresa/logo',
+  requireAdminAuth,
+  uploadLogo.single('logo'),
+  asyncHandler(adminController.subirLogo)
+);
+
+// Publico: se muestra en el header tanto del panel admin como del check-in
+router.get('/logo/:empresaId', asyncHandler(adminController.servirLogo));
 
 module.exports = router;

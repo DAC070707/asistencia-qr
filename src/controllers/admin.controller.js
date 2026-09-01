@@ -7,20 +7,46 @@ const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
 const ESTADOS_HORAS_EXTRA = ['pendiente', 'aprobado', 'rechazado'];
 const HORA_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
 
+async function subirLogo(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No se recibió ningún archivo' });
+  }
+
+  await db('empresas')
+    .where({ id: req.admin.empresaId })
+    .update({ logo_data: req.file.buffer, logo_mime: req.file.mimetype });
+
+  res.json({ url: `/logo/${req.admin.empresaId}?v=${Date.now()}` });
+}
+
+async function servirLogo(req, res) {
+  const { empresaId } = req.params;
+  const empresa = await db('empresas').where({ id: empresaId }).first();
+  if (!empresa || !empresa.logo_data) {
+    return res.status(404).send('Sin logo');
+  }
+  res.set('Content-Type', empresa.logo_mime);
+  res.set('Cache-Control', 'public, max-age=300');
+  res.send(empresa.logo_data);
+}
+
 function paginaLogin(req, res) {
   res.render('admin/login');
 }
 
 function paginaDashboard(req, res) {
-  res.render('admin/dashboard', { admin: req.admin });
+  res.render('admin/dashboard', { admin: req.admin, logoEmpresaUrl: `/logo/${req.admin.empresaId}` });
 }
 
 function paginaHistorial(req, res) {
-  res.render('admin/historial', { admin: req.admin });
+  res.render('admin/historial', { admin: req.admin, logoEmpresaUrl: `/logo/${req.admin.empresaId}` });
 }
 
 function paginaTrabajadores(req, res) {
-  res.render('admin/trabajadores', { admin: req.admin });
+  res.render('admin/trabajadores', {
+    admin: req.admin,
+    logoEmpresaUrl: `/logo/${req.admin.empresaId}`
+  });
 }
 
 async function qrDeHoy(req, res) {
@@ -217,5 +243,7 @@ module.exports = {
   listarWorkers,
   actualizarWorker,
   editarAsistencia,
-  cambiarEstadoHorasExtra
+  cambiarEstadoHorasExtra,
+  subirLogo,
+  servirLogo
 };

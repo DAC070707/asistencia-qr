@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Marcar asistencia</title>
+  <title>Marcar asistencia — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
+  <%- include('../partials/header', { logoEmpresaUrl: logoEmpresaUrl }) %>
+
   <div class="contenedor">
-    <div class="tarjeta" style="margin-top: 40px;">
+    <div class="tarjeta" style="margin-top: 24px;">
       <h1>Hola, <%= nombre %></h1>
 
       <% if (error) { %>
@@ -43,5 +45,7 @@
       </p>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 </body>
 </html>

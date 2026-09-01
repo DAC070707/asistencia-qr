@@ -1,0 +1,17 @@
+<header class="dana-header">
+  <a href="<%= typeof navHome !== 'undefined' ? navHome : '/' %>" class="dana-header-brand">
+    <img src="/img/dana-logo.svg" alt="Dana" class="dana-logo-img" />
+  </a>
+  <% if (typeof navLinks !== 'undefined' && navLinks) { %>
+  <nav class="dana-header-nav">
+    <% navLinks.forEach(function(link) { %>
+      <a href="<%= link.href %>"<% if (link.id) { %> id="<%= link.id %>"<% } %>><%= link.texto %></a>
+    <% }); %>
+  </nav>
+  <% } %>
+  <div class="dana-header-empresa">
+    <% if (typeof logoEmpresaUrl !== 'undefined' && logoEmpresaUrl) { %>
+      <img src="<%= logoEmpresaUrl %>" alt="Logo de la empresa" class="empresa-logo-img" onerror="this.style.display='none'" />
+    <% } %>
+  </div>
+</header>

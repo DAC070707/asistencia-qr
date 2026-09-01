@@ -41,10 +41,11 @@ async function workerDesdeCookie(req, empresaId) {
   }
 }
 
-function datosParaVistaMarcar(worker, token, registro, error) {
+function datosParaVistaMarcar(worker, token, empresaId, registro, error) {
   return {
     token,
     nombre: worker.nombre,
+    logoEmpresaUrl: `/logo/${empresaId}`,
     horaEntrada: registro ? horaLima(new Date(registro.creado_en)) : null,
     horaSalida: registro?.hora_salida ? horaLima(new Date(registro.hora_salida)) : null,
     error: error || null
@@ -60,11 +61,14 @@ async function mostrarCheckin(req, res) {
 
   const worker = await workerDesdeCookie(req, codigo.empresa_id);
   if (!worker) {
-    return res.render('checkin/form', { token });
+    return res.render('checkin/form', { token, logoEmpresaUrl: `/logo/${codigo.empresa_id}` });
   }
 
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
-  return res.render('checkin/marcar', datosParaVistaMarcar(worker, token, registro));
+  return res.render(
+    'checkin/marcar',
+    datosParaVistaMarcar(worker, token, codigo.empresa_id, registro)
+  );
 }
 
 async function identificar(req, res) {
@@ -74,14 +78,19 @@ async function identificar(req, res) {
     return res.render('checkin/codigo-invalido');
   }
 
+  const logoEmpresaUrl = `/logo/${codigo.empresa_id}`;
   const dni = String(req.body.dni || '').trim();
   const nombre = String(req.body.nombre || '').trim();
 
   if (!/^\d{8}$/.test(dni)) {
-    return res.render('checkin/form', { token, error: 'Ingresa un DNI valido de 8 digitos' });
+    return res.render('checkin/form', {
+      token,
+      logoEmpresaUrl,
+      error: 'Ingresa un DNI valido de 8 digitos'
+    });
   }
   if (nombre.length < 3) {
-    return res.render('checkin/form', { token, error: 'Ingresa tu nombre completo' });
+    return res.render('checkin/form', { token, logoEmpresaUrl, error: 'Ingresa tu nombre completo' });
   }
 
   const worker = await attendanceService.buscarOCrearWorker({
@@ -92,6 +101,7 @@ async function identificar(req, res) {
   if (!worker.activo) {
     return res.render('checkin/form', {
       token,
+      logoEmpresaUrl,
       error: 'Tu registro esta inactivo. Contacta al administrador.'
     });
   }
@@ -99,7 +109,10 @@ async function identificar(req, res) {
   setDeviceCookie(res, worker.id, codigo.empresa_id);
 
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
-  return res.render('checkin/marcar', datosParaVistaMarcar(worker, token, registro));
+  return res.render(
+    'checkin/marcar',
+    datosParaVistaMarcar(worker, token, codigo.empresa_id, registro)
+  );
 }
 
 async function marcar(req, res) {
@@ -111,7 +124,7 @@ async function marcar(req, res) {
 
   const worker = await workerDesdeCookie(req, codigo.empresa_id);
   if (!worker) {
-    return res.render('checkin/form', { token });
+    return res.render('checkin/form', { token, logoEmpresaUrl: `/logo/${codigo.empresa_id}` });
   }
 
   const accion = req.body.accion;
@@ -124,6 +137,7 @@ async function marcar(req, res) {
     });
     return res.render('checkin/confirmado', {
       nombre: worker.nombre,
+      logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
       tipo: 'entrada',
       hora: horaLima(new Date(registro.creado_en)),
       yaExistia
@@ -136,12 +150,13 @@ async function marcar(req, res) {
     if (resultado.error === 'sin_entrada') {
       return res.render(
         'checkin/marcar',
-        datosParaVistaMarcar(worker, token, null, 'Primero marca tu entrada de hoy.')
+        datosParaVistaMarcar(worker, token, codigo.empresa_id, null, 'Primero marca tu entrada de hoy.')
       );
     }
 
     return res.render('checkin/confirmado', {
       nombre: worker.nombre,
+      logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
       tipo: 'salida',
       hora: horaLima(new Date(resultado.registro.hora_salida)),
       yaExistia: resultado.yaExistia
@@ -170,6 +185,7 @@ async function historialWorker(req, res) {
 
   return res.render('checkin/mi-historial', {
     nombre: worker.nombre,
+    logoEmpresaUrl: `/logo/${worker.empresa_id}`,
     totalAprobado25: totalAprobado25.toFixed(2),
     totalAprobado35: totalAprobado35.toFixed(2),
     registros: registros.map((r) => ({

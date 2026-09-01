@@ -3,12 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Asistencia registrada</title>
+  <title>Asistencia registrada — DANA</title>
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
+  <%- include('../partials/header', { logoEmpresaUrl: logoEmpresaUrl }) %>
+
   <div class="contenedor">
-    <div class="tarjeta" style="margin-top: 60px; text-align:center;">
+    <div class="tarjeta" style="margin-top: 40px; text-align:center;">
       <div class="estado-icono"><%= yaExistia ? 'ℹ️' : '✅' %></div>
       <h1 class="<%= yaExistia ? '' : 'exito' %>">
         <%= yaExistia ? `Ya habías marcado tu ${tipo}` : `${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada` %>
@@ -16,5 +18,7 @@
       <p class="subtitulo">Hola <strong><%= nombre %></strong>, tu <%= tipo %> de hoy quedó registrada a las <strong><%= hora %></strong>.</p>
     </div>
   </div>
+
+  <%- include('../partials/footer') %>
 </body>
 </html>
