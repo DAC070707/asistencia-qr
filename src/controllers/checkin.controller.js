@@ -12,18 +12,29 @@ const DEVICE_COOKIE_OPTS = {
   maxAge: 1000 * 60 * 60 * 24 * 365 // 1 año
 };
 
-function setDeviceCookie(res, workerId) {
-  const token = jwt.sign({ workerId }, env.jwtSecret, { expiresIn: '365d' });
+function setDeviceCookie(res, workerId, empresaId) {
+  const token = jwt.sign({ workerId, empresaId }, env.jwtSecret, { expiresIn: '365d' });
   res.cookie('worker_token', token, DEVICE_COOKIE_OPTS);
 }
 
-async function workerDesdeCookie(req) {
+// Si se pasa empresaId, solo reconoce al trabajador cuando la cookie es de
+// ESA empresa (la del QR que se acaba de escanear). Esto es lo que permite
+// que un mismo celular marque asistencia en dos negocios distintos sin
+// mezclar los datos: si la cookie es de otra empresa, se trata como "sin
+// identificar" y se vuelve a pedir nombre+DNI (creando/encontrando el
+// registro correcto dentro de la empresa nueva). Sin empresaId (usado por
+// /mi-historial) simplemente reconoce lo que haya en la cookie.
+async function workerDesdeCookie(req, empresaId) {
   const token = req.cookies?.worker_token;
   if (!token) return null;
 
   try {
     const payload = jwt.verify(token, env.jwtSecret);
-    const worker = await db('workers').where({ id: payload.workerId, activo: true }).first();
+    if (empresaId !== undefined && payload.empresaId !== empresaId) return null;
+
+    const worker = await db('workers')
+      .where({ id: payload.workerId, empresa_id: payload.empresaId, activo: true })
+      .first();
     return worker || null;
   } catch (err) {
     return null;
@@ -47,7 +58,7 @@ async function mostrarCheckin(req, res) {
     return res.render('checkin/codigo-invalido');
   }
 
-  const worker = await workerDesdeCookie(req);
+  const worker = await workerDesdeCookie(req, codigo.empresa_id);
   if (!worker) {
     return res.render('checkin/form', { token });
   }
@@ -73,7 +84,11 @@ async function identificar(req, res) {
     return res.render('checkin/form', { token, error: 'Ingresa tu nombre completo' });
   }
 
-  const worker = await attendanceService.buscarOCrearWorker({ dni, nombre });
+  const worker = await attendanceService.buscarOCrearWorker({
+    dni,
+    nombre,
+    empresaId: codigo.empresa_id
+  });
   if (!worker.activo) {
     return res.render('checkin/form', {
       token,
@@ -81,7 +96,7 @@ async function identificar(req, res) {
     });
   }
 
-  setDeviceCookie(res, worker.id);
+  setDeviceCookie(res, worker.id, codigo.empresa_id);
 
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
   return res.render('checkin/marcar', datosParaVistaMarcar(worker, token, registro));
@@ -94,7 +109,7 @@ async function marcar(req, res) {
     return res.render('checkin/codigo-invalido');
   }
 
-  const worker = await workerDesdeCookie(req);
+  const worker = await workerDesdeCookie(req, codigo.empresa_id);
   if (!worker) {
     return res.render('checkin/form', { token });
   }
@@ -104,7 +119,8 @@ async function marcar(req, res) {
   if (accion === 'entrada') {
     const { registro, yaExistia } = await attendanceService.marcarEntrada({
       workerId: worker.id,
-      dailyCodeId: codigo.id
+      dailyCodeId: codigo.id,
+      empresaId: codigo.empresa_id
     });
     return res.render('checkin/confirmado', {
       nombre: worker.nombre,

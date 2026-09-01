@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Empresas — Súper-admin</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="contenedor-ancho">
+    <div class="topbar">
+      <h1 style="margin:0;">Súper-admin</h1>
+      <nav>
+        <a href="#" id="logout-link">Salir</a>
+      </nav>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Nueva empresa</h2>
+      <div id="crear-error"></div>
+      <form id="crear-form">
+        <label for="nombreEmpresa">Nombre de la empresa</label>
+        <input type="text" id="nombreEmpresa" required />
+        <label for="adminEmail">Email del primer admin</label>
+        <input type="email" id="adminEmail" required />
+        <label for="adminPassword">Password del primer admin</label>
+        <input type="password" id="adminPassword" required minlength="8" />
+        <button type="submit" id="crear-btn">Crear empresa</button>
+      </form>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Empresas</h2>
+      <table>
+        <thead>
+          <tr><th>Nombre</th><th>Activo</th><th>Trabajadores</th><th>Marcaciones</th><th>Creada</th></tr>
+        </thead>
+        <tbody id="tabla-empresas">
+          <tr><td colspan="5">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/js/superadmin-dashboard.js"></script>
+</body>
+</html>

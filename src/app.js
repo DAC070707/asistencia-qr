@@ -5,6 +5,7 @@ const cookieParser = require('cookie-parser');
 const authRoutes = require('./routes/auth.routes');
 const adminRoutes = require('./routes/admin.routes');
 const checkinRoutes = require('./routes/checkin.routes');
+const superadminRoutes = require('./routes/superadmin.routes');
 const errorHandler = require('./middleware/errorHandler');
 
 const app = express();
@@ -21,6 +22,7 @@ app.get('/', (req, res) => res.redirect('/admin'));
 
 app.use('/api/auth', authRoutes);
 app.use(adminRoutes);
+app.use(superadminRoutes);
 app.use(checkinRoutes);
 
 app.use((req, res) => res.status(404).send('No encontrado'));

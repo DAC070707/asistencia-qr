@@ -26,12 +26,14 @@ async function login(req, res) {
     return res.status(401).json({ error: 'Credenciales invalidas' });
   }
 
-  const token = jwt.sign({ adminId: admin.id, email: admin.email }, env.jwtSecret, {
-    expiresIn: '12h'
-  });
+  const token = jwt.sign(
+    { adminId: admin.id, email: admin.email, empresaId: admin.empresa_id },
+    env.jwtSecret,
+    { expiresIn: '12h' }
+  );
 
   res.cookie('admin_token', token, COOKIE_OPTS);
-  return res.json({ id: admin.id, email: admin.email });
+  return res.json({ id: admin.id, email: admin.email, empresaId: admin.empresa_id });
 }
 
 function logout(req, res) {

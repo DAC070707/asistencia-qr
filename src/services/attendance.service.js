@@ -15,11 +15,11 @@ const COLUMNAS_ASISTENCIA = [
   'attendance.editado_en'
 ];
 
-async function buscarOCrearWorker({ dni, nombre }) {
-  const existente = await db('workers').where({ dni }).first();
+async function buscarOCrearWorker({ dni, nombre, empresaId }) {
+  const existente = await db('workers').where({ dni, empresa_id: empresaId }).first();
   if (existente) return existente;
 
-  const [creado] = await db('workers').insert({ dni, nombre }).returning('*');
+  const [creado] = await db('workers').insert({ dni, nombre, empresa_id: empresaId }).returning('*');
   return creado;
 }
 
@@ -28,7 +28,7 @@ async function buscarAsistenciaDeHoy(workerId) {
   return db('attendance').where({ worker_id: workerId, fecha }).first();
 }
 
-async function marcarEntrada({ workerId, dailyCodeId }) {
+async function marcarEntrada({ workerId, dailyCodeId, empresaId }) {
   const fecha = hoyLima();
 
   // Ya marco entrada hoy: no duplicar, devolver el registro existente.
@@ -36,7 +36,7 @@ async function marcarEntrada({ workerId, dailyCodeId }) {
   if (existente) return { registro: existente, yaExistia: true };
 
   const [creado] = await db('attendance')
-    .insert({ worker_id: workerId, daily_code_id: dailyCodeId, fecha })
+    .insert({ worker_id: workerId, daily_code_id: dailyCodeId, empresa_id: empresaId, fecha })
     .returning('*');
   return { registro: creado, yaExistia: false };
 }
@@ -66,11 +66,14 @@ async function marcarSalida({ workerId }) {
   return { registro: actualizado, yaExistia: false };
 }
 
-// El admin corrige la hora de entrada y/o salida de un registro. Recalcula
-// horas extra con el horario ACTUAL del trabajador y vuelve el estado a
-// "pendiente" (una aprobacion previa quedaria basada en datos incorrectos).
-async function editarRegistro(id, { horaEntrada, horaSalida }, adminId) {
-  const registro = await db('attendance').where({ id }).first();
+// El admin corrige la hora de entrada y/o salida de un registro DE SU PROPIA
+// EMPRESA. El filtro por empresa_id es lo que evita que un admin edite (o
+// siquiera detecte la existencia de) un registro de otra empresa adivinando
+// el id en la URL. Recalcula horas extra con el horario ACTUAL del
+// trabajador y vuelve el estado a "pendiente" (una aprobacion previa
+// quedaria basada en datos incorrectos).
+async function editarRegistro(id, { horaEntrada, horaSalida }, adminId, empresaId) {
+  const registro = await db('attendance').where({ id, empresa_id: empresaId }).first();
   if (!registro) return null;
 
   const nuevaEntrada = horaEntrada ? new Date(horaEntrada) : new Date(registro.creado_en);
@@ -91,7 +94,7 @@ async function editarRegistro(id, { horaEntrada, horaSalida }, adminId) {
     : { extra25: 0, extra35: 0 };
 
   const [actualizado] = await db('attendance')
-    .where({ id })
+    .where({ id, empresa_id: empresaId })
     .update({
       creado_en: nuevaEntrada,
       hora_salida: nuevaSalida,
@@ -107,9 +110,9 @@ async function editarRegistro(id, { horaEntrada, horaSalida }, adminId) {
   return actualizado;
 }
 
-async function cambiarEstadoHorasExtra(id, estado, adminId) {
+async function cambiarEstadoHorasExtra(id, estado, adminId, empresaId) {
   const [actualizado] = await db('attendance')
-    .where({ id })
+    .where({ id, empresa_id: empresaId })
     .update({
       horas_extra_estado: estado,
       horas_extra_aprobado_por: adminId,
@@ -119,15 +122,16 @@ async function cambiarEstadoHorasExtra(id, estado, adminId) {
   return actualizado;
 }
 
-async function listarAsistenciaDeHoy() {
+async function listarAsistenciaDeHoy(empresaId) {
   const fecha = hoyLima();
-  return listarAsistenciaPorFecha(fecha);
+  return listarAsistenciaPorFecha(fecha, empresaId);
 }
 
-async function listarAsistenciaPorFecha(fecha) {
+async function listarAsistenciaPorFecha(fecha, empresaId) {
   return db('attendance')
     .join('workers', 'workers.id', 'attendance.worker_id')
     .where('attendance.fecha', fecha)
+    .andWhere('attendance.empresa_id', empresaId)
     .select(COLUMNAS_ASISTENCIA)
     .orderBy('attendance.creado_en', 'asc');
 }

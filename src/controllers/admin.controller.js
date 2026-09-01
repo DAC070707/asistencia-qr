@@ -5,6 +5,7 @@ const db = require('../config/db');
 const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
 
 const ESTADOS_HORAS_EXTRA = ['pendiente', 'aprobado', 'rechazado'];
+const HORA_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
 
 function paginaLogin(req, res) {
   res.render('admin/login');
@@ -23,7 +24,7 @@ function paginaTrabajadores(req, res) {
 }
 
 async function qrDeHoy(req, res) {
-  const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy();
+  const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy(req.admin.empresaId);
   res.json({
     fecha: codigo.fecha,
     token: codigo.token,
@@ -32,7 +33,7 @@ async function qrDeHoy(req, res) {
 }
 
 async function qrDeHoyImagen(req, res) {
-  const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy();
+  const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy(req.admin.empresaId);
   const buffer = await qrImageService.generarPngBuffer(codigo.token);
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'no-store');
@@ -40,7 +41,7 @@ async function qrDeHoyImagen(req, res) {
 }
 
 async function regenerarQr(req, res) {
-  const codigo = await dailyCodeService.regenerarCodigoDeHoy(req.admin.id);
+  const codigo = await dailyCodeService.regenerarCodigoDeHoy(req.admin.empresaId, req.admin.id);
   res.json({
     fecha: codigo.fecha,
     token: codigo.token,
@@ -49,7 +50,7 @@ async function regenerarQr(req, res) {
 }
 
 async function asistenciaDeHoy(req, res) {
-  const registros = await attendanceService.listarAsistenciaDeHoy();
+  const registros = await attendanceService.listarAsistenciaDeHoy(req.admin.empresaId);
   res.json(registros);
 }
 
@@ -58,7 +59,7 @@ async function asistenciaPorFecha(req, res) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
     return res.status(400).json({ error: 'Formato de fecha invalido, usa YYYY-MM-DD' });
   }
-  const registros = await attendanceService.listarAsistenciaPorFecha(fecha);
+  const registros = await attendanceService.listarAsistenciaPorFecha(fecha, req.admin.empresaId);
   res.json(registros);
 }
 
@@ -68,7 +69,7 @@ async function exportarCsv(req, res) {
     return res.status(400).json({ error: 'Formato de fecha invalido, usa YYYY-MM-DD' });
   }
 
-  const registros = await attendanceService.listarAsistenciaPorFecha(fecha);
+  const registros = await attendanceService.listarAsistenciaPorFecha(fecha, req.admin.empresaId);
 
   const formatoHora = (valor) =>
     valor
@@ -116,11 +117,11 @@ async function exportarCsv(req, res) {
 }
 
 async function listarWorkers(req, res) {
-  const workers = await db('workers').orderBy('nombre', 'asc');
+  const workers = await db('workers')
+    .where({ empresa_id: req.admin.empresaId })
+    .orderBy('nombre', 'asc');
   res.json(workers);
 }
-
-const HORA_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
 
 async function actualizarWorker(req, res) {
   const { id } = req.params;
@@ -147,7 +148,12 @@ async function actualizarWorker(req, res) {
     return res.status(400).json({ error: 'Nada que actualizar' });
   }
 
-  const [actualizado] = await db('workers').where({ id }).update(cambios).returning('*');
+  // El filtro por empresa_id evita que un admin edite (o detecte la
+  // existencia de) un trabajador de otra empresa adivinando el id.
+  const [actualizado] = await db('workers')
+    .where({ id, empresa_id: req.admin.empresaId })
+    .update(cambios)
+    .returning('*');
   if (!actualizado) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
@@ -168,7 +174,8 @@ async function editarAsistencia(req, res) {
   const actualizado = await attendanceService.editarRegistro(
     id,
     { horaEntrada, horaSalida },
-    req.admin.id
+    req.admin.id,
+    req.admin.empresaId
   );
   if (!actualizado) {
     return res.status(404).json({ error: 'Registro no encontrado' });
@@ -184,7 +191,12 @@ async function cambiarEstadoHorasExtra(req, res) {
     return res.status(400).json({ error: 'Estado invalido, usa "aprobado" o "rechazado"' });
   }
 
-  const actualizado = await attendanceService.cambiarEstadoHorasExtra(id, estado, req.admin.id);
+  const actualizado = await attendanceService.cambiarEstadoHorasExtra(
+    id,
+    estado,
+    req.admin.id,
+    req.admin.empresaId
+  );
   if (!actualizado) {
     return res.status(404).json({ error: 'Registro no encontrado' });
   }
