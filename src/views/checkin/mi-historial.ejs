@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Mi historial</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="contenedor">
+    <div class="tarjeta" style="margin-top: 24px;">
+      <h1>Hola, <%= nombre %></h1>
+      <p class="subtitulo">Horas extra aprobadas este mes</p>
+      <div style="display:flex; gap:12px; margin-bottom:8px;">
+        <div style="flex:1; text-align:center; background:#f4f5f7; border-radius:8px; padding:12px;">
+          <div style="font-size:1.4rem; font-weight:600;"><%= totalAprobado25 %></div>
+          <div style="font-size:0.8rem; color:#666;">horas al 25%</div>
+        </div>
+        <div style="flex:1; text-align:center; background:#f4f5f7; border-radius:8px; padding:12px;">
+          <div style="font-size:1.4rem; font-weight:600;"><%= totalAprobado35 %></div>
+          <div style="font-size:0.8rem; color:#666;">horas al 35%</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Registros del mes</h2>
+      <% if (registros.length === 0) { %>
+        <p class="subtitulo">Aún no tienes registros este mes.</p>
+      <% } else { %>
+        <table>
+          <thead>
+            <tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Extra 25%</th><th>Extra 35%</th><th>Estado</th></tr>
+          </thead>
+          <tbody>
+            <% registros.forEach(function(r) { %>
+              <tr>
+                <td><%= r.fecha %></td>
+                <td><%= r.horaEntrada %></td>
+                <td><%= r.horaSalida %></td>
+                <td><%= r.horasExtra25 %></td>
+                <td><%= r.horasExtra35 %></td>
+                <td>
+                  <% if (r.estado === 'aprobado') { %>✅ Aprobado
+                  <% } else if (r.estado === 'rechazado') { %>❌ Rechazado
+                  <% } else { %>⏳ Pendiente
+                  <% } %>
+                </td>
+              </tr>
+            <% }); %>
+          </tbody>
+        </table>
+      <% } %>
+    </div>
+  </div>
+</body>
+</html>

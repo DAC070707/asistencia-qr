@@ -13,25 +13,32 @@
       <nav>
         <a href="/admin">Hoy</a>
         <a href="/admin/historial">Historial</a>
+        <a href="/admin/trabajadores">Trabajadores</a>
         <a href="#" id="logout-link">Salir</a>
       </nav>
     </div>
 
     <div class="tarjeta">
       <h2>Historial por fecha</h2>
+      <p class="subtitulo">Click en una hora para corregirla. Las horas extra requieren tu aprobación para contar como válidas.</p>
       <div class="fila-acciones">
         <input type="date" id="fecha-input" style="max-width:180px; margin:0;" />
         <button id="buscar-btn">Buscar</button>
         <a id="export-link" class="boton secundario" href="#">Exportar CSV</a>
       </div>
-      <table>
-        <thead>
-          <tr><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th></tr>
-        </thead>
-        <tbody id="tabla-historial">
-          <tr><td colspan="4">Elige una fecha</td></tr>
-        </tbody>
-      </table>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th>
+              <th>Extra 25%</th><th>Extra 35%</th><th>Horas extra</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="tabla-historial">
+            <tr><td colspan="8">Elige una fecha</td></tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 

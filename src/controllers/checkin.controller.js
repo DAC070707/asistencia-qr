@@ -135,4 +135,36 @@ async function marcar(req, res) {
   return res.status(400).send('Accion invalida');
 }
 
-module.exports = { mostrarCheckin, identificar, marcar };
+async function historialWorker(req, res) {
+  const worker = await workerDesdeCookie(req);
+  if (!worker) {
+    return res.render('checkin/sin-identificar');
+  }
+
+  const registros = await attendanceService.listarHistorialMesDeWorker(worker.id);
+
+  let totalAprobado25 = 0;
+  let totalAprobado35 = 0;
+  for (const r of registros) {
+    if (r.horas_extra_estado === 'aprobado') {
+      totalAprobado25 += Number(r.horas_extra_25);
+      totalAprobado35 += Number(r.horas_extra_35);
+    }
+  }
+
+  return res.render('checkin/mi-historial', {
+    nombre: worker.nombre,
+    totalAprobado25: totalAprobado25.toFixed(2),
+    totalAprobado35: totalAprobado35.toFixed(2),
+    registros: registros.map((r) => ({
+      fecha: new Date(r.fecha).toISOString().slice(0, 10),
+      horaEntrada: horaLima(new Date(r.creado_en)),
+      horaSalida: r.hora_salida ? horaLima(new Date(r.hora_salida)) : '—',
+      horasExtra25: Number(r.horas_extra_25),
+      horasExtra35: Number(r.horas_extra_35),
+      estado: r.horas_extra_estado
+    }))
+  });
+}
+
+module.exports = { mostrarCheckin, identificar, marcar, historialWorker };

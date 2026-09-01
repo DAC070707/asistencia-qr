@@ -44,6 +44,37 @@ input[type="password"] {
   margin-bottom: 16px;
 }
 
+input[type="time"],
+input[type="date"],
+input[type="datetime-local"] {
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 0.9rem;
+}
+
+table input[type="time"],
+table input[type="datetime-local"] {
+  width: 100%;
+  max-width: 160px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+}
+.badge-pendiente { background: #fef3c7; color: #92400e; }
+.badge-aprobado { background: #dcfce7; color: #15803d; }
+.badge-rechazado { background: #fee2e2; color: #b91c1c; }
+
+.boton-mini {
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  border-radius: 6px;
+}
+
 button, .boton {
   display: inline-block;
   background: #2563eb;

@@ -2,7 +2,9 @@ const dailyCodeService = require('../services/dailyCode.service');
 const qrImageService = require('../services/qrImage.service');
 const attendanceService = require('../services/attendance.service');
 const db = require('../config/db');
-const { hoyLima } = require('../utils/limaDate');
+const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
+
+const ESTADOS_HORAS_EXTRA = ['pendiente', 'aprobado', 'rechazado'];
 
 function paginaLogin(req, res) {
   res.render('admin/login');
@@ -14,6 +16,10 @@ function paginaDashboard(req, res) {
 
 function paginaHistorial(req, res) {
   res.render('admin/historial', { admin: req.admin });
+}
+
+function paginaTrabajadores(req, res) {
+  res.render('admin/trabajadores', { admin: req.admin });
 }
 
 async function qrDeHoy(req, res) {
@@ -75,9 +81,29 @@ async function exportarCsv(req, res) {
         }).format(new Date(valor))
       : '';
 
-  const filas = [['DNI', 'Nombre', 'Fecha', 'Hora entrada (Lima)', 'Hora salida (Lima)']];
+  const filas = [
+    [
+      'DNI',
+      'Nombre',
+      'Fecha',
+      'Hora entrada (Lima)',
+      'Hora salida (Lima)',
+      'Horas extra 25%',
+      'Horas extra 35%',
+      'Estado horas extra'
+    ]
+  ];
   for (const r of registros) {
-    filas.push([r.dni, r.nombre, r.fecha, formatoHora(r.creado_en), formatoHora(r.hora_salida)]);
+    filas.push([
+      r.dni,
+      r.nombre,
+      fecha,
+      formatoHora(r.creado_en),
+      formatoHora(r.hora_salida),
+      r.horas_extra_25,
+      r.horas_extra_35,
+      r.horas_extra_estado
+    ]);
   }
 
   const csv = filas
@@ -94,13 +120,28 @@ async function listarWorkers(req, res) {
   res.json(workers);
 }
 
+const HORA_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
+
 async function actualizarWorker(req, res) {
   const { id } = req.params;
-  const { activo, nombre } = req.body;
+  const { activo, nombre, hora_entrada_programada, hora_salida_programada } = req.body;
 
   const cambios = {};
   if (typeof activo === 'boolean') cambios.activo = activo;
   if (typeof nombre === 'string' && nombre.trim()) cambios.nombre = nombre.trim();
+
+  for (const [campo, valor] of [
+    ['hora_entrada_programada', hora_entrada_programada],
+    ['hora_salida_programada', hora_salida_programada]
+  ]) {
+    if (valor === null || valor === '') {
+      cambios[campo] = null;
+    } else if (typeof valor === 'string' && HORA_REGEX.test(valor)) {
+      cambios[campo] = valor;
+    } else if (valor !== undefined) {
+      return res.status(400).json({ error: `${campo} debe tener formato HH:MM` });
+    }
+  }
 
   if (Object.keys(cambios).length === 0) {
     return res.status(400).json({ error: 'Nada que actualizar' });
@@ -113,10 +154,48 @@ async function actualizarWorker(req, res) {
   res.json(actualizado);
 }
 
+async function editarAsistencia(req, res) {
+  const { id } = req.params;
+  const { hora_entrada, hora_salida } = req.body;
+
+  const horaEntrada = hora_entrada ? limaLocalInputToDate(hora_entrada) : null;
+  const horaSalida = hora_salida ? limaLocalInputToDate(hora_salida) : null;
+
+  if ((hora_entrada && isNaN(horaEntrada)) || (hora_salida && isNaN(horaSalida))) {
+    return res.status(400).json({ error: 'Fecha/hora invalida' });
+  }
+
+  const actualizado = await attendanceService.editarRegistro(
+    id,
+    { horaEntrada, horaSalida },
+    req.admin.id
+  );
+  if (!actualizado) {
+    return res.status(404).json({ error: 'Registro no encontrado' });
+  }
+  res.json(actualizado);
+}
+
+async function cambiarEstadoHorasExtra(req, res) {
+  const { id } = req.params;
+  const { estado } = req.body;
+
+  if (!ESTADOS_HORAS_EXTRA.includes(estado) || estado === 'pendiente') {
+    return res.status(400).json({ error: 'Estado invalido, usa "aprobado" o "rechazado"' });
+  }
+
+  const actualizado = await attendanceService.cambiarEstadoHorasExtra(id, estado, req.admin.id);
+  if (!actualizado) {
+    return res.status(404).json({ error: 'Registro no encontrado' });
+  }
+  res.json(actualizado);
+}
+
 module.exports = {
   paginaLogin,
   paginaDashboard,
   paginaHistorial,
+  paginaTrabajadores,
   qrDeHoy,
   qrDeHoyImagen,
   regenerarQr,
@@ -124,5 +203,7 @@ module.exports = {
   asistenciaPorFecha,
   exportarCsv,
   listarWorkers,
-  actualizarWorker
+  actualizarWorker,
+  editarAsistencia,
+  cambiarEstadoHorasExtra
 };

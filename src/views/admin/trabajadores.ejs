@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trabajadores — Asistencia QR</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="contenedor-ancho">
+    <div class="topbar">
+      <h1 style="margin:0;">Asistencia QR</h1>
+      <nav>
+        <a href="/admin">Hoy</a>
+        <a href="/admin/historial">Historial</a>
+        <a href="/admin/trabajadores">Trabajadores</a>
+        <a href="#" id="logout-link">Salir</a>
+      </nav>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Horario por trabajador</h2>
+      <p class="subtitulo">Se usa para calcular horas extra (25% las primeras 2, 35% el resto). Deja los campos vacíos si un trabajador no tiene horario fijo.</p>
+      <table>
+        <thead>
+          <tr><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th><th>Activo</th><th></th></tr>
+        </thead>
+        <tbody id="tabla-trabajadores">
+          <tr><td colspan="6">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/js/admin-trabajadores.js"></script>
+</body>
+</html>

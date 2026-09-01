@@ -1,5 +1,19 @@
 const db = require('../config/db');
-const { hoyLima } = require('../utils/limaDate');
+const { hoyLima, primerDiaMesLima } = require('../utils/limaDate');
+const { calcularHorasExtra } = require('../utils/overtime');
+
+const COLUMNAS_ASISTENCIA = [
+  'attendance.id',
+  'workers.dni',
+  'workers.nombre',
+  'attendance.creado_en',
+  'attendance.hora_salida',
+  'attendance.fecha',
+  'attendance.horas_extra_25',
+  'attendance.horas_extra_35',
+  'attendance.horas_extra_estado',
+  'attendance.editado_en'
+];
 
 async function buscarOCrearWorker({ dni, nombre }) {
   const existente = await db('workers').where({ dni }).first();
@@ -36,11 +50,73 @@ async function marcarSalida({ workerId }) {
     return { registro: existente, yaExistia: true };
   }
 
+  const worker = await db('workers').where({ id: workerId }).first();
+  const horaSalida = new Date();
+  const { extra25, extra35 } = calcularHorasExtra({
+    horaEntrada: existente.creado_en,
+    horaSalida,
+    horaEntradaProgramada: worker.hora_entrada_programada,
+    horaSalidaProgramada: worker.hora_salida_programada
+  });
+
   const [actualizado] = await db('attendance')
     .where({ id: existente.id })
-    .update({ hora_salida: db.fn.now() })
+    .update({ hora_salida: horaSalida, horas_extra_25: extra25, horas_extra_35: extra35 })
     .returning('*');
   return { registro: actualizado, yaExistia: false };
+}
+
+// El admin corrige la hora de entrada y/o salida de un registro. Recalcula
+// horas extra con el horario ACTUAL del trabajador y vuelve el estado a
+// "pendiente" (una aprobacion previa quedaria basada en datos incorrectos).
+async function editarRegistro(id, { horaEntrada, horaSalida }, adminId) {
+  const registro = await db('attendance').where({ id }).first();
+  if (!registro) return null;
+
+  const nuevaEntrada = horaEntrada ? new Date(horaEntrada) : new Date(registro.creado_en);
+  const nuevaSalida = horaSalida
+    ? new Date(horaSalida)
+    : registro.hora_salida
+      ? new Date(registro.hora_salida)
+      : null;
+
+  const worker = await db('workers').where({ id: registro.worker_id }).first();
+  const { extra25, extra35 } = nuevaSalida
+    ? calcularHorasExtra({
+        horaEntrada: nuevaEntrada,
+        horaSalida: nuevaSalida,
+        horaEntradaProgramada: worker.hora_entrada_programada,
+        horaSalidaProgramada: worker.hora_salida_programada
+      })
+    : { extra25: 0, extra35: 0 };
+
+  const [actualizado] = await db('attendance')
+    .where({ id })
+    .update({
+      creado_en: nuevaEntrada,
+      hora_salida: nuevaSalida,
+      horas_extra_25: extra25,
+      horas_extra_35: extra35,
+      horas_extra_estado: 'pendiente',
+      horas_extra_aprobado_por: null,
+      horas_extra_aprobado_en: null,
+      editado_por: adminId,
+      editado_en: db.fn.now()
+    })
+    .returning('*');
+  return actualizado;
+}
+
+async function cambiarEstadoHorasExtra(id, estado, adminId) {
+  const [actualizado] = await db('attendance')
+    .where({ id })
+    .update({
+      horas_extra_estado: estado,
+      horas_extra_aprobado_por: adminId,
+      horas_extra_aprobado_en: db.fn.now()
+    })
+    .returning('*');
+  return actualizado;
 }
 
 async function listarAsistenciaDeHoy() {
@@ -52,15 +128,27 @@ async function listarAsistenciaPorFecha(fecha) {
   return db('attendance')
     .join('workers', 'workers.id', 'attendance.worker_id')
     .where('attendance.fecha', fecha)
-    .select(
-      'attendance.id',
-      'workers.dni',
-      'workers.nombre',
-      'attendance.creado_en',
-      'attendance.hora_salida',
-      'attendance.fecha'
-    )
+    .select(COLUMNAS_ASISTENCIA)
     .orderBy('attendance.creado_en', 'asc');
+}
+
+async function listarHistorialMesDeWorker(workerId) {
+  const desde = primerDiaMesLima();
+  const hasta = hoyLima();
+  return db('attendance')
+    .where('worker_id', workerId)
+    .andWhere('fecha', '>=', desde)
+    .andWhere('fecha', '<=', hasta)
+    .select(
+      'id',
+      'fecha',
+      'creado_en',
+      'hora_salida',
+      'horas_extra_25',
+      'horas_extra_35',
+      'horas_extra_estado'
+    )
+    .orderBy('fecha', 'desc');
 }
 
 module.exports = {
@@ -68,6 +156,9 @@ module.exports = {
   buscarAsistenciaDeHoy,
   marcarEntrada,
   marcarSalida,
+  editarRegistro,
+  cambiarEstadoHorasExtra,
   listarAsistenciaDeHoy,
-  listarAsistenciaPorFecha
+  listarAsistenciaPorFecha,
+  listarHistorialMesDeWorker
 };
