@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marcar asistencia</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="contenedor">
+    <div class="tarjeta" style="margin-top: 40px;">
+      <h1>Hola, <%= nombre %></h1>
+
+      <% if (error) { %>
+        <div class="error"><%= error %></div>
+      <% } %>
+
+      <% if (horaSalida) { %>
+        <p class="subtitulo exito">Jornada completa hoy.<br>Entrada: <strong><%= horaEntrada %></strong> — Salida: <strong><%= horaSalida %></strong></p>
+      <% } else if (horaEntrada) { %>
+        <p class="subtitulo">Entrada registrada a las <strong><%= horaEntrada %></strong>.<br>Cuando termines tu jornada, marca tu salida.</p>
+      <% } else { %>
+        <p class="subtitulo">Aún no has marcado nada hoy.</p>
+      <% } %>
+
+      <div class="fila-acciones" style="flex-direction:column;">
+        <form method="POST" action="/checkin/<%= token %>/marcar" style="width:100%;">
+          <input type="hidden" name="accion" value="entrada" />
+          <button type="submit" style="width:100%;" <%= horaEntrada ? 'disabled' : '' %>>
+            Marcar entrada
+          </button>
+        </form>
+        <form method="POST" action="/checkin/<%= token %>/marcar" style="width:100%; margin-top:10px;">
+          <input type="hidden" name="accion" value="salida" />
+          <button type="submit" class="secundario" style="width:100%;" <%= (!horaEntrada || horaSalida) ? 'disabled' : '' %>>
+            Marcar salida
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

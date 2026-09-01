@@ -64,16 +64,20 @@ async function exportarCsv(req, res) {
 
   const registros = await attendanceService.listarAsistenciaPorFecha(fecha);
 
-  const filas = [['DNI', 'Nombre', 'Fecha', 'Hora registro (Lima)']];
+  const formatoHora = (valor) =>
+    valor
+      ? new Intl.DateTimeFormat('es-PE', {
+          timeZone: 'America/Lima',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit',
+          hour12: true
+        }).format(new Date(valor))
+      : '';
+
+  const filas = [['DNI', 'Nombre', 'Fecha', 'Hora entrada (Lima)', 'Hora salida (Lima)']];
   for (const r of registros) {
-    const horaLimaStr = new Intl.DateTimeFormat('es-PE', {
-      timeZone: 'America/Lima',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    }).format(new Date(r.creado_en));
-    filas.push([r.dni, r.nombre, r.fecha, horaLimaStr]);
+    filas.push([r.dni, r.nombre, r.fecha, formatoHora(r.creado_en), formatoHora(r.hora_salida)]);
   }
 
   const csv = filas

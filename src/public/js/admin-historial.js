@@ -39,14 +39,14 @@ async function buscar() {
   const registros = await resp.json();
 
   if (registros.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3">Sin registros para esta fecha</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4">Sin registros para esta fecha</td></tr>';
     return;
   }
 
   tbody.innerHTML = registros
     .map(
       (r) =>
-        `<tr><td>${escapeHtml(r.nombre)}</td><td>${escapeHtml(r.dni)}</td><td>${formatearHora(r.creado_en)}</td></tr>`
+        `<tr><td>${escapeHtml(r.nombre)}</td><td>${escapeHtml(r.dni)}</td><td>${formatearHora(r.creado_en)}</td><td>${r.hora_salida ? formatearHora(r.hora_salida) : '—'}</td></tr>`
     )
     .join('');
 }

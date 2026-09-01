@@ -30,6 +30,16 @@ async function workerDesdeCookie(req) {
   }
 }
 
+function datosParaVistaMarcar(worker, token, registro, error) {
+  return {
+    token,
+    nombre: worker.nombre,
+    horaEntrada: registro ? horaLima(new Date(registro.creado_en)) : null,
+    horaSalida: registro?.hora_salida ? horaLima(new Date(registro.hora_salida)) : null,
+    error: error || null
+  };
+}
+
 async function mostrarCheckin(req, res) {
   const { token } = req.params;
   const codigo = await dailyCodeService.validarToken(token);
@@ -42,25 +52,11 @@ async function mostrarCheckin(req, res) {
     return res.render('checkin/form', { token });
   }
 
-  const existente = await attendanceService.buscarAsistenciaDeHoy(worker.id);
-  if (existente) {
-    return res.render('checkin/ya-marcado', {
-      nombre: worker.nombre,
-      hora: horaLima(new Date(existente.creado_en))
-    });
-  }
-
-  const { registro } = await attendanceService.registrarAsistencia({
-    workerId: worker.id,
-    dailyCodeId: codigo.id
-  });
-  return res.render('checkin/confirmado', {
-    nombre: worker.nombre,
-    hora: horaLima(new Date(registro.creado_en))
-  });
+  const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
+  return res.render('checkin/marcar', datosParaVistaMarcar(worker, token, registro));
 }
 
-async function registrarCheckin(req, res) {
+async function identificar(req, res) {
   const { token } = req.params;
   const codigo = await dailyCodeService.validarToken(token);
   if (!codigo) {
@@ -87,21 +83,56 @@ async function registrarCheckin(req, res) {
 
   setDeviceCookie(res, worker.id);
 
-  const { registro, yaExistia } = await attendanceService.registrarAsistencia({
-    workerId: worker.id,
-    dailyCodeId: codigo.id
-  });
-
-  if (yaExistia) {
-    return res.render('checkin/ya-marcado', {
-      nombre: worker.nombre,
-      hora: horaLima(new Date(registro.creado_en))
-    });
-  }
-  return res.render('checkin/confirmado', {
-    nombre: worker.nombre,
-    hora: horaLima(new Date(registro.creado_en))
-  });
+  const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
+  return res.render('checkin/marcar', datosParaVistaMarcar(worker, token, registro));
 }
 
-module.exports = { mostrarCheckin, registrarCheckin };
+async function marcar(req, res) {
+  const { token } = req.params;
+  const codigo = await dailyCodeService.validarToken(token);
+  if (!codigo) {
+    return res.render('checkin/codigo-invalido');
+  }
+
+  const worker = await workerDesdeCookie(req);
+  if (!worker) {
+    return res.render('checkin/form', { token });
+  }
+
+  const accion = req.body.accion;
+
+  if (accion === 'entrada') {
+    const { registro, yaExistia } = await attendanceService.marcarEntrada({
+      workerId: worker.id,
+      dailyCodeId: codigo.id
+    });
+    return res.render('checkin/confirmado', {
+      nombre: worker.nombre,
+      tipo: 'entrada',
+      hora: horaLima(new Date(registro.creado_en)),
+      yaExistia
+    });
+  }
+
+  if (accion === 'salida') {
+    const resultado = await attendanceService.marcarSalida({ workerId: worker.id });
+
+    if (resultado.error === 'sin_entrada') {
+      return res.render(
+        'checkin/marcar',
+        datosParaVistaMarcar(worker, token, null, 'Primero marca tu entrada de hoy.')
+      );
+    }
+
+    return res.render('checkin/confirmado', {
+      nombre: worker.nombre,
+      tipo: 'salida',
+      hora: horaLima(new Date(resultado.registro.hora_salida)),
+      yaExistia: resultado.yaExistia
+    });
+  }
+
+  return res.status(400).send('Accion invalida');
+}
+
+module.exports = { mostrarCheckin, identificar, marcar };

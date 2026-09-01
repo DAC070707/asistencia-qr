@@ -5,6 +5,7 @@ const asyncHandler = require('../utils/asyncHandler');
 const router = express.Router();
 
 router.get('/checkin/:token', asyncHandler(checkinController.mostrarCheckin));
-router.post('/checkin/:token', asyncHandler(checkinController.registrarCheckin));
+router.post('/checkin/:token', asyncHandler(checkinController.identificar));
+router.post('/checkin/:token/marcar', asyncHandler(checkinController.marcar));
 
 module.exports = router;

@@ -14,10 +14,10 @@ async function buscarAsistenciaDeHoy(workerId) {
   return db('attendance').where({ worker_id: workerId, fecha }).first();
 }
 
-async function registrarAsistencia({ workerId, dailyCodeId }) {
+async function marcarEntrada({ workerId, dailyCodeId }) {
   const fecha = hoyLima();
 
-  // Ya marco hoy: no duplicar, devolver el registro existente.
+  // Ya marco entrada hoy: no duplicar, devolver el registro existente.
   const existente = await buscarAsistenciaDeHoy(workerId);
   if (existente) return { registro: existente, yaExistia: true };
 
@@ -25,6 +25,22 @@ async function registrarAsistencia({ workerId, dailyCodeId }) {
     .insert({ worker_id: workerId, daily_code_id: dailyCodeId, fecha })
     .returning('*');
   return { registro: creado, yaExistia: false };
+}
+
+async function marcarSalida({ workerId }) {
+  const existente = await buscarAsistenciaDeHoy(workerId);
+  if (!existente) {
+    return { error: 'sin_entrada' };
+  }
+  if (existente.hora_salida) {
+    return { registro: existente, yaExistia: true };
+  }
+
+  const [actualizado] = await db('attendance')
+    .where({ id: existente.id })
+    .update({ hora_salida: db.fn.now() })
+    .returning('*');
+  return { registro: actualizado, yaExistia: false };
 }
 
 async function listarAsistenciaDeHoy() {
@@ -41,6 +57,7 @@ async function listarAsistenciaPorFecha(fecha) {
       'workers.dni',
       'workers.nombre',
       'attendance.creado_en',
+      'attendance.hora_salida',
       'attendance.fecha'
     )
     .orderBy('attendance.creado_en', 'asc');
@@ -49,7 +66,8 @@ async function listarAsistenciaPorFecha(fecha) {
 module.exports = {
   buscarOCrearWorker,
   buscarAsistenciaDeHoy,
-  registrarAsistencia,
+  marcarEntrada,
+  marcarSalida,
   listarAsistenciaDeHoy,
   listarAsistenciaPorFecha
 };

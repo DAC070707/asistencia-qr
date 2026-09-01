@@ -9,9 +9,11 @@
 <body>
   <div class="contenedor">
     <div class="tarjeta" style="margin-top: 60px; text-align:center;">
-      <div class="estado-icono">✅</div>
-      <h1 class="exito">Asistencia registrada</h1>
-      <p class="subtitulo">Hola <strong><%= nombre %></strong>, quedó marcada tu asistencia a las <strong><%= hora %></strong>.</p>
+      <div class="estado-icono"><%= yaExistia ? 'ℹ️' : '✅' %></div>
+      <h1 class="<%= yaExistia ? '' : 'exito' %>">
+        <%= yaExistia ? `Ya habías marcado tu ${tipo}` : `${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada` %>
+      </h1>
+      <p class="subtitulo">Hola <strong><%= nombre %></strong>, tu <%= tipo %> de hoy quedó registrada a las <strong><%= hora %></strong>.</p>
     </div>
   </div>
 </body>

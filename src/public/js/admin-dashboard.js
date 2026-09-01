@@ -32,14 +32,14 @@ async function cargarAsistenciaHoy() {
   document.getElementById('contador-hoy').textContent = `(${registros.length})`;
 
   if (registros.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="3">Aún nadie ha marcado asistencia</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4">Aún nadie ha marcado asistencia</td></tr>';
     return;
   }
 
   tbody.innerHTML = registros
     .map(
       (r) =>
-        `<tr><td>${escapeHtml(r.nombre)}</td><td>${escapeHtml(r.dni)}</td><td>${formatearHora(r.creado_en)}</td></tr>`
+        `<tr><td>${escapeHtml(r.nombre)}</td><td>${escapeHtml(r.dni)}</td><td>${formatearHora(r.creado_en)}</td><td>${r.hora_salida ? formatearHora(r.hora_salida) : '—'}</td></tr>`
     )
     .join('');
 }
