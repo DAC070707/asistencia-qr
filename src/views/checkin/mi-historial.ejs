@@ -14,13 +14,13 @@
       <h1>Hola, <%= nombre %></h1>
       <p class="subtitulo">Horas extra aprobadas este mes</p>
       <div style="display:flex; gap:12px; margin-bottom:8px;">
-        <div style="flex:1; text-align:center; background:#f4f5f7; border-radius:8px; padding:12px;">
-          <div style="font-size:1.4rem; font-weight:600;"><%= totalAprobado25 %></div>
-          <div style="font-size:0.8rem; color:#666;">horas al 25%</div>
+        <div style="flex:1; text-align:center; background:var(--paper); border:1.5px solid var(--line); border-radius:2px; padding:12px;">
+          <div style="font-family:var(--font-mono); font-size:1.4rem; font-weight:600;"><%= totalAprobado25 %></div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);">horas al 25%</div>
         </div>
-        <div style="flex:1; text-align:center; background:#f4f5f7; border-radius:8px; padding:12px;">
-          <div style="font-size:1.4rem; font-weight:600;"><%= totalAprobado35 %></div>
-          <div style="font-size:0.8rem; color:#666;">horas al 35%</div>
+        <div style="flex:1; text-align:center; background:var(--paper); border:1.5px solid var(--line); border-radius:2px; padding:12px;">
+          <div style="font-family:var(--font-mono); font-size:1.4rem; font-weight:600;"><%= totalAprobado35 %></div>
+          <div style="font-family:var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);">horas al 35%</div>
         </div>
       </div>
     </div>

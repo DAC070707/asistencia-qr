@@ -21,7 +21,11 @@
   <div class="contenedor-ancho">
     <div class="tarjeta" style="text-align:center;">
       <h2>Código de hoy (<span id="fecha-hoy">—</span>)</h2>
-      <img id="qr-img" class="qr-imagen" src="/api/admin/qr/today.png" alt="Codigo QR del dia" />
+      <div class="qr-marco">
+        <div class="qr-marco-etiqueta">Registro de asistencia</div>
+        <img id="qr-img" class="qr-imagen" src="/api/admin/qr/today.png" alt="Codigo QR del dia" />
+        <div class="qr-marco-sello">Dana</div>
+      </div>
       <div class="token-url" id="url-checkin">—</div>
       <div class="fila-acciones" style="justify-content:center;">
         <button id="regenerar-btn" class="secundario">Invalidar y generar nuevo código</button>
@@ -40,7 +44,7 @@
     </div>
 
     <div class="tarjeta">
-      <h2>Asistencia de hoy <span id="contador-hoy" style="color:#666; font-weight:normal;"></span></h2>
+      <h2>Asistencia de hoy <span id="contador-hoy" style="color:var(--muted); font-family:var(--font-mono); text-transform:none; letter-spacing:0;"></span></h2>
       <table>
         <thead>
           <tr><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th></tr>
