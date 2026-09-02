@@ -80,23 +80,46 @@ async function asistenciaDeHoy(req, res) {
   res.json(registros);
 }
 
-async function asistenciaPorFecha(req, res) {
-  const fecha = req.query.fecha || hoyLima();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-    return res.status(400).json({ error: 'Formato de fecha invalido, usa YYYY-MM-DD' });
+function parametrosRango(query) {
+  const hoy = hoyLima();
+  const desde = query.desde || query.fecha || hoy;
+  const hasta = query.hasta || query.fecha || hoy;
+  const workerId = query.worker_id || null;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde) || !/^\d{4}-\d{2}-\d{2}$/.test(hasta)) {
+    return { error: 'Formato de fecha invalido, usa YYYY-MM-DD' };
   }
-  const registros = await attendanceService.listarAsistenciaPorFecha(fecha, req.admin.empresaId);
+  if (desde > hasta) {
+    return { error: 'La fecha "desde" no puede ser posterior a "hasta"' };
+  }
+  return { desde, hasta, workerId };
+}
+
+async function asistenciaPorFecha(req, res) {
+  const rango = parametrosRango(req.query);
+  if (rango.error) {
+    return res.status(400).json({ error: rango.error });
+  }
+  const registros = await attendanceService.listarAsistencia({
+    empresaId: req.admin.empresaId,
+    ...rango
+  });
   res.json(registros);
 }
 
 async function exportarCsv(req, res) {
-  const fecha = req.query.fecha || hoyLima();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) {
-    return res.status(400).json({ error: 'Formato de fecha invalido, usa YYYY-MM-DD' });
+  const rango = parametrosRango(req.query);
+  if (rango.error) {
+    return res.status(400).json({ error: rango.error });
   }
+  const { desde, hasta } = rango;
 
-  const registros = await attendanceService.listarAsistenciaPorFecha(fecha, req.admin.empresaId);
+  const registros = await attendanceService.listarAsistencia({
+    empresaId: req.admin.empresaId,
+    ...rango
+  });
 
+  const formatoFecha = (valor) => new Date(valor).toISOString().slice(0, 10);
   const formatoHora = (valor) =>
     valor
       ? new Intl.DateTimeFormat('es-PE', {
@@ -124,7 +147,7 @@ async function exportarCsv(req, res) {
     filas.push([
       r.dni,
       r.nombre,
-      fecha,
+      formatoFecha(r.fecha),
       formatoHora(r.creado_en),
       formatoHora(r.hora_salida),
       r.horas_extra_25,
@@ -137,8 +160,9 @@ async function exportarCsv(req, res) {
     .map((fila) => fila.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
     .join('\n');
 
+  const nombreArchivo = desde === hasta ? desde : `${desde}_a_${hasta}`;
   res.set('Content-Type', 'text/csv; charset=utf-8');
-  res.set('Content-Disposition', `attachment; filename="asistencia_${fecha}.csv"`);
+  res.set('Content-Disposition', `attachment; filename="asistencia_${nombreArchivo}.csv"`);
   res.send('﻿' + csv); // BOM para que Excel reconozca UTF-8
 }
 

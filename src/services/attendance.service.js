@@ -124,16 +124,26 @@ async function cambiarEstadoHorasExtra(id, estado, adminId, empresaId) {
 
 async function listarAsistenciaDeHoy(empresaId) {
   const fecha = hoyLima();
-  return listarAsistenciaPorFecha(fecha, empresaId);
+  return listarAsistencia({ empresaId, desde: fecha, hasta: fecha });
 }
 
-async function listarAsistenciaPorFecha(fecha, empresaId) {
-  return db('attendance')
+// Reporte del historial: rango de fechas (inclusive) de UNA empresa, con
+// filtro opcional por trabajador.
+async function listarAsistencia({ empresaId, desde, hasta, workerId }) {
+  const query = db('attendance')
     .join('workers', 'workers.id', 'attendance.worker_id')
-    .where('attendance.fecha', fecha)
-    .andWhere('attendance.empresa_id', empresaId)
+    .where('attendance.empresa_id', empresaId)
+    .andWhere('attendance.fecha', '>=', desde)
+    .andWhere('attendance.fecha', '<=', hasta)
     .select(COLUMNAS_ASISTENCIA)
+    .orderBy('attendance.fecha', 'desc')
     .orderBy('attendance.creado_en', 'asc');
+
+  if (workerId) {
+    query.andWhere('attendance.worker_id', workerId);
+  }
+
+  return query;
 }
 
 async function listarHistorialMesDeWorker(workerId) {
@@ -163,6 +173,6 @@ module.exports = {
   editarRegistro,
   cambiarEstadoHorasExtra,
   listarAsistenciaDeHoy,
-  listarAsistenciaPorFecha,
+  listarAsistencia,
   listarHistorialMesDeWorker
 };

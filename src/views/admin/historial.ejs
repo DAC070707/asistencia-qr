@@ -20,10 +20,20 @@
 
   <div class="contenedor-ancho">
     <div class="tarjeta">
-      <h2>Historial por fecha</h2>
+      <h2>Historial</h2>
       <p class="subtitulo">Click en una hora para corregirla. Las horas extra requieren tu aprobación para contar como válidas.</p>
       <div class="fila-acciones">
-        <input type="date" id="fecha-input" style="max-width:180px; margin:0;" />
+        <label style="margin:0;">Desde
+          <input type="date" id="desde-input" style="max-width:170px;" />
+        </label>
+        <label style="margin:0;">Hasta
+          <input type="date" id="hasta-input" style="max-width:170px;" />
+        </label>
+        <label style="margin:0; flex:1; min-width:180px;">Trabajador
+          <select id="worker-input" style="width:100%; padding:6px 8px; border:1.5px solid var(--line); border-radius:2px; background:var(--paper-light); font-family:var(--font-body);">
+            <option value="">Todos</option>
+          </select>
+        </label>
         <button id="buscar-btn">Buscar</button>
         <a id="export-link" class="boton secundario" href="#">Exportar CSV</a>
       </div>
@@ -31,12 +41,12 @@
         <table>
           <thead>
             <tr>
-              <th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th>
+              <th>Fecha</th><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th>
               <th>Extra 25%</th><th>Extra 35%</th><th>Horas extra</th><th></th>
             </tr>
           </thead>
           <tbody id="tabla-historial">
-            <tr><td colspan="8">Elige una fecha</td></tr>
+            <tr><td colspan="9">Elige una fecha</td></tr>
           </tbody>
         </table>
       </div>

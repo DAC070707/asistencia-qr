@@ -12,6 +12,10 @@ function formatearHora(iso) {
   });
 }
 
+function formatearFecha(iso) {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date(iso));
+}
+
 // Convierte un instante ISO a "YYYY-MM-DDTHH:mm" en hora de Lima, para
 // precargar un <input type="datetime-local">.
 function toLimaInputValue(iso) {
@@ -37,18 +41,38 @@ function badgeEstado(estado) {
   return `<span class="badge badge-${estado}">${textos[estado] || estado}</span>`;
 }
 
-const fechaInput = document.getElementById('fecha-input');
+const desdeInput = document.getElementById('desde-input');
+const hastaInput = document.getElementById('hasta-input');
+const workerInput = document.getElementById('worker-input');
 const tbody = document.getElementById('tabla-historial');
 const exportLink = document.getElementById('export-link');
 
-function actualizarExportLink(fecha) {
-  exportLink.href = `/api/admin/attendance/export.csv?fecha=${fecha}`;
+async function cargarWorkers() {
+  const resp = await fetch('/api/admin/workers');
+  if (!resp.ok) return;
+  const workers = await resp.json();
+  workerInput.innerHTML =
+    '<option value="">Todos</option>' +
+    workers
+      .map((w) => `<option value="${w.id}">${escapeHtml(w.nombre)} (${escapeHtml(w.dni)})</option>`)
+      .join('');
+}
+
+function paramsActuales() {
+  const params = new URLSearchParams({ desde: desdeInput.value, hasta: hastaInput.value });
+  if (workerInput.value) params.set('worker_id', workerInput.value);
+  return params;
+}
+
+function actualizarExportLink() {
+  exportLink.href = `/api/admin/attendance/export.csv?${paramsActuales().toString()}`;
 }
 
 function filaHtml(r) {
   const tieneExtra = Number(r.horas_extra_25) > 0 || Number(r.horas_extra_35) > 0;
   return `
     <tr data-id="${r.id}" data-entrada="${r.creado_en}" data-salida="${r.hora_salida || ''}">
+      <td>${formatearFecha(r.fecha)}</td>
       <td>${escapeHtml(r.nombre)}</td>
       <td>${escapeHtml(r.dni)}</td>
       <td class="celda-entrada">${formatearHora(r.creado_en)}</td>
@@ -73,13 +97,14 @@ function filaHtml(r) {
 }
 
 function filaEdicionHtml(fila) {
-  const id = fila.dataset.id;
   const entrada = fila.dataset.entrada ? toLimaInputValue(fila.dataset.entrada) : '';
   const salida = fila.dataset.salida ? toLimaInputValue(fila.dataset.salida) : '';
-  const nombre = fila.children[0].textContent;
-  const dni = fila.children[1].textContent;
+  const nombre = fila.children[1].textContent;
+  const dni = fila.children[2].textContent;
+  const fecha = fila.children[0].textContent;
 
   fila.innerHTML = `
+    <td>${escapeHtml(fecha)}</td>
     <td>${escapeHtml(nombre)}</td>
     <td>${escapeHtml(dni)}</td>
     <td><input type="datetime-local" class="input-entrada" value="${entrada}" /></td>
@@ -93,21 +118,21 @@ function filaEdicionHtml(fila) {
 }
 
 async function buscar() {
-  const fecha = fechaInput.value;
-  if (!fecha) return;
+  if (!desdeInput.value || !hastaInput.value) return;
 
-  actualizarExportLink(fecha);
-  tbody.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
+  actualizarExportLink();
+  tbody.innerHTML = '<tr><td colspan="9">Cargando...</td></tr>';
 
-  const resp = await fetch(`/api/admin/attendance?fecha=${fecha}`);
+  const resp = await fetch(`/api/admin/attendance?${paramsActuales().toString()}`);
   if (!resp.ok) {
-    tbody.innerHTML = '<tr><td colspan="8">Error al cargar</td></tr>';
+    const data = await resp.json().catch(() => ({}));
+    tbody.innerHTML = `<tr><td colspan="9">${data.error || 'Error al cargar'}</td></tr>`;
     return;
   }
   const registros = await resp.json();
 
   if (registros.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8">Sin registros para esta fecha</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9">Sin registros para este filtro</td></tr>';
     return;
   }
 
@@ -160,5 +185,7 @@ document.getElementById('logout-link').addEventListener('click', async (e) => {
   window.location.href = '/admin/login';
 });
 
-fechaInput.value = hoyLimaISO();
+desdeInput.value = hoyLimaISO();
+hastaInput.value = hoyLimaISO();
+cargarWorkers();
 buscar();
