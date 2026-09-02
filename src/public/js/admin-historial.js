@@ -12,8 +12,12 @@ function formatearHora(iso) {
   });
 }
 
+// "fecha" es una columna DATE (sin hora): Postgres la sirve como medianoche
+// UTC. Reinterpretarla en hora de Lima (como si fuera un instante real) la
+// corre al dia anterior, asi que aca solo se extrae la parte de fecha tal
+// cual, sin aplicar huso horario.
 function formatearFecha(iso) {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date(iso));
+  return new Date(iso).toISOString().slice(0, 10);
 }
 
 // Convierte un instante ISO a "YYYY-MM-DDTHH:mm" en hora de Lima, para

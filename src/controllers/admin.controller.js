@@ -7,6 +7,13 @@ const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
 const ESTADOS_HORAS_EXTRA = ['pendiente', 'aprobado', 'rechazado'];
 const HORA_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
 
+// "fecha" es una columna DATE (sin hora); Postgres la sirve como medianoche
+// UTC. Se extrae la parte de fecha tal cual, sin reinterpretarla en ningun
+// huso horario (eso la correria al dia anterior).
+function formatoFecha(valor) {
+  return new Date(valor).toISOString().slice(0, 10);
+}
+
 async function subirLogo(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: 'No se recibió ningún archivo' });
@@ -52,7 +59,7 @@ function paginaTrabajadores(req, res) {
 async function qrDeHoy(req, res) {
   const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy(req.admin.empresaId);
   res.json({
-    fecha: codigo.fecha,
+    fecha: formatoFecha(codigo.fecha),
     token: codigo.token,
     url: qrImageService.urlCheckin(codigo.token)
   });
@@ -69,7 +76,7 @@ async function qrDeHoyImagen(req, res) {
 async function regenerarQr(req, res) {
   const codigo = await dailyCodeService.regenerarCodigoDeHoy(req.admin.empresaId, req.admin.id);
   res.json({
-    fecha: codigo.fecha,
+    fecha: formatoFecha(codigo.fecha),
     token: codigo.token,
     url: qrImageService.urlCheckin(codigo.token)
   });
@@ -119,7 +126,6 @@ async function exportarCsv(req, res) {
     ...rango
   });
 
-  const formatoFecha = (valor) => new Date(valor).toISOString().slice(0, 10);
   const formatoHora = (valor) =>
     valor
       ? new Intl.DateTimeFormat('es-PE', {
