@@ -12,8 +12,8 @@
   <div class="contenedor">
     <div class="tarjeta" style="margin-top: 24px;">
       <h1>Hola, <%= nombre %></h1>
-      <p class="subtitulo">Horas extra aprobadas este mes</p>
-      <div style="display:flex; gap:12px; margin-bottom:8px;">
+      <p class="subtitulo">Horas extra aprobadas del <%= desde %> al <%= hasta %></p>
+      <div style="display:flex; gap:12px; margin-bottom:16px;">
         <div style="flex:1; text-align:center; background:var(--paper); border:1.5px solid var(--line); border-radius:2px; padding:12px;">
           <div style="font-family:var(--font-mono); font-size:1.4rem; font-weight:600;"><%= totalAprobado25 %></div>
           <div style="font-family:var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);">horas al 25%</div>
@@ -23,35 +23,47 @@
           <div style="font-family:var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);">horas al 35%</div>
         </div>
       </div>
+
+      <form method="GET" action="/mi-historial" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
+        <label style="margin:0; flex:1; min-width:120px;">Desde
+          <input type="date" name="desde" value="<%= desde %>" style="width:100%;" />
+        </label>
+        <label style="margin:0; flex:1; min-width:120px;">Hasta
+          <input type="date" name="hasta" value="<%= hasta %>" style="width:100%;" />
+        </label>
+        <button type="submit">Buscar</button>
+      </form>
     </div>
 
     <div class="tarjeta">
-      <h2>Registros del mes</h2>
+      <h2>Registros</h2>
       <% if (registros.length === 0) { %>
-        <p class="subtitulo">Aún no tienes registros este mes.</p>
+        <p class="subtitulo">No tienes registros en este rango de fechas.</p>
       <% } else { %>
-        <table>
-          <thead>
-            <tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Extra 25%</th><th>Extra 35%</th><th>Estado</th></tr>
-          </thead>
-          <tbody>
-            <% registros.forEach(function(r) { %>
-              <tr>
-                <td><%= r.fecha %></td>
-                <td><%= r.horaEntrada %></td>
-                <td><%= r.horaSalida %></td>
-                <td><%= r.horasExtra25 %></td>
-                <td><%= r.horasExtra35 %></td>
-                <td>
-                  <% if (r.estado === 'aprobado') { %>✅ Aprobado
-                  <% } else if (r.estado === 'rechazado') { %>❌ Rechazado
-                  <% } else { %>⏳ Pendiente
-                  <% } %>
-                </td>
-              </tr>
-            <% }); %>
-          </tbody>
-        </table>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Extra 25%</th><th>Extra 35%</th><th>Estado</th></tr>
+            </thead>
+            <tbody>
+              <% registros.forEach(function(r) { %>
+                <tr>
+                  <td><%= r.fecha %></td>
+                  <td><%= r.horaEntrada %></td>
+                  <td><%= r.horaSalida %></td>
+                  <td><%= r.horasExtra25 %></td>
+                  <td><%= r.horasExtra35 %></td>
+                  <td>
+                    <% if (r.estado === 'aprobado') { %>✅ Aprobado
+                    <% } else if (r.estado === 'rechazado') { %>❌ Rechazado
+                    <% } else { %>⏳ Pendiente
+                    <% } %>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
       <% } %>
     </div>
   </div>

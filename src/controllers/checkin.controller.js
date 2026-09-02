@@ -3,7 +3,7 @@ const env = require('../config/env');
 const dailyCodeService = require('../services/dailyCode.service');
 const attendanceService = require('../services/attendance.service');
 const db = require('../config/db');
-const { horaLima } = require('../utils/limaDate');
+const { horaLima, hoyLima, primerDiaMesLima } = require('../utils/limaDate');
 
 const DEVICE_COOKIE_OPTS = {
   httpOnly: true,
@@ -172,7 +172,19 @@ async function historialWorker(req, res) {
     return res.render('checkin/sin-identificar');
   }
 
-  const registros = await attendanceService.listarHistorialMesDeWorker(worker.id);
+  const FECHA_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+  let desde = req.query.desde;
+  let hasta = req.query.hasta;
+  if (!desde || !hasta || !FECHA_REGEX.test(desde) || !FECHA_REGEX.test(hasta) || desde > hasta) {
+    desde = primerDiaMesLima();
+    hasta = hoyLima();
+  }
+
+  const registros = await attendanceService.listarHistorialDeWorker({
+    workerId: worker.id,
+    desde,
+    hasta
+  });
 
   let totalAprobado25 = 0;
   let totalAprobado35 = 0;
@@ -186,6 +198,8 @@ async function historialWorker(req, res) {
   return res.render('checkin/mi-historial', {
     nombre: worker.nombre,
     logoEmpresaUrl: `/logo/${worker.empresa_id}`,
+    desde,
+    hasta,
     totalAprobado25: totalAprobado25.toFixed(2),
     totalAprobado35: totalAprobado35.toFixed(2),
     registros: registros.map((r) => ({

@@ -1,5 +1,5 @@
 const db = require('../config/db');
-const { hoyLima, primerDiaMesLima } = require('../utils/limaDate');
+const { hoyLima } = require('../utils/limaDate');
 const { calcularHorasExtra } = require('../utils/overtime');
 
 const COLUMNAS_ASISTENCIA = [
@@ -146,9 +146,7 @@ async function listarAsistencia({ empresaId, desde, hasta, workerId }) {
   return query;
 }
 
-async function listarHistorialMesDeWorker(workerId) {
-  const desde = primerDiaMesLima();
-  const hasta = hoyLima();
+async function listarHistorialDeWorker({ workerId, desde, hasta }) {
   return db('attendance')
     .where('worker_id', workerId)
     .andWhere('fecha', '>=', desde)
@@ -174,5 +172,5 @@ module.exports = {
   cambiarEstadoHorasExtra,
   listarAsistenciaDeHoy,
   listarAsistencia,
-  listarHistorialMesDeWorker
+  listarHistorialDeWorker
 };
