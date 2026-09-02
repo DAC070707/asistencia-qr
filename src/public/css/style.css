@@ -38,17 +38,8 @@ body {
   border-bottom: 3px solid var(--red);
   flex-wrap: wrap;
 }
-.dana-header-brand { display: flex; align-items: center; gap: 9px; line-height: 0; text-decoration: none; }
-.dana-logo-img { height: 30px; display: block; }
-.dana-wordmark {
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 1.15rem;
-  letter-spacing: .04em;
-  color: var(--paper-light);
-  text-transform: uppercase;
-  line-height: 1;
-}
+.dana-header-brand { display: flex; align-items: center; line-height: 0; text-decoration: none; }
+.dana-logo-img { width: 112px; height: auto; display: block; }
 .dana-header-nav { display: flex; gap: 18px; flex-wrap: wrap; }
 .dana-header-nav a {
   color: var(--paper-light);
@@ -68,9 +59,15 @@ body {
   background: var(--paper-light);
   border: 1px solid var(--line);
   border-radius: 2px;
-  padding: 4px 10px;
+  padding: 6px 10px;
 }
-.empresa-logo-img { height: 26px; max-width: 130px; object-fit: contain; display: block; }
+.empresa-logo-img { width: 112px; height: auto; max-height: 72px; object-fit: contain; display: block; }
+
+@media (max-width: 480px) {
+  .dana-logo-img { width: 74px; }
+  .empresa-logo-img { width: 74px; max-height: 50px; }
+  .dana-header-nav { order: 3; flex-basis: 100%; justify-content: center; margin-top: 2px; }
+}
 
 .dana-footer {
   text-align: center;
@@ -275,23 +272,22 @@ button:disabled:hover { background: var(--red); }
 }
 .qr-marco-sello {
   position: absolute;
-  top: -16px;
-  right: -14px;
-  width: 54px;
-  height: 54px;
-  border-radius: 50%;
-  border: 2px solid var(--red);
-  color: var(--red);
+  top: -22px;
+  right: -16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: .8rem;
-  letter-spacing: .02em;
-  transform: rotate(-11deg);
-  background: var(--paper-light);
-  text-transform: uppercase;
+  padding: 8px 12px;
+  border-radius: 3px;
+  border: 2px solid var(--red);
+  background: var(--ink);
+  transform: rotate(-7deg);
+}
+.qr-marco-sello img { width: 112px; height: auto; display: block; }
+
+@media (max-width: 480px) {
+  .qr-marco-sello { top: -16px; right: -10px; padding: 6px 9px; }
+  .qr-marco-sello img { width: 74px; }
 }
 
 .qr-imagen {
