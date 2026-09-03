@@ -4,6 +4,7 @@ const dailyCodeService = require('../services/dailyCode.service');
 const attendanceService = require('../services/attendance.service');
 const db = require('../config/db');
 const { horaLima, hoyLima, primerDiaMesLima } = require('../utils/limaDate');
+const { calcularHorasPendientes } = require('../utils/overtime');
 
 const DEVICE_COOKIE_OPTS = {
   httpOnly: true,
@@ -206,6 +207,11 @@ async function historialWorker(req, res) {
       fecha: new Date(r.fecha).toISOString().slice(0, 10),
       horaEntrada: horaLima(new Date(r.creado_en)),
       horaSalida: r.hora_salida ? horaLima(new Date(r.hora_salida)) : '—',
+      horasPendientes: calcularHorasPendientes({
+        fecha: r.fecha,
+        horaSalida: r.hora_salida,
+        horaSalidaProgramada: worker.hora_salida_programada
+      }),
       horasExtra25: Number(r.horas_extra_25),
       horasExtra35: Number(r.horas_extra_35),
       estado: r.horas_extra_estado

@@ -3,6 +3,7 @@ const qrImageService = require('../services/qrImage.service');
 const attendanceService = require('../services/attendance.service');
 const db = require('../config/db');
 const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
+const { calcularHorasPendientes } = require('../utils/overtime');
 
 const ESTADOS_HORAS_EXTRA = ['pendiente', 'aprobado', 'rechazado'];
 const HORA_REGEX = /^\d{2}:\d{2}(:\d{2})?$/;
@@ -111,7 +112,16 @@ async function asistenciaPorFecha(req, res) {
     empresaId: req.admin.empresaId,
     ...rango
   });
-  res.json(registros);
+
+  const conPendientes = registros.map((r) => ({
+    ...r,
+    horas_pendientes: calcularHorasPendientes({
+      fecha: r.fecha,
+      horaSalida: r.hora_salida,
+      horaSalidaProgramada: r.hora_salida_programada
+    })
+  }));
+  res.json(conPendientes);
 }
 
 async function exportarCsv(req, res) {

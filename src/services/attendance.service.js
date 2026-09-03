@@ -12,7 +12,8 @@ const COLUMNAS_ASISTENCIA = [
   'attendance.horas_extra_25',
   'attendance.horas_extra_35',
   'attendance.horas_extra_estado',
-  'attendance.editado_en'
+  'attendance.editado_en',
+  'workers.hora_salida_programada'
 ];
 
 async function buscarOCrearWorker({ dni, nombre, empresaId }) {

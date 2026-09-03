@@ -43,7 +43,7 @@
         <div style="overflow-x:auto;">
           <table>
             <thead>
-              <tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Extra 25%</th><th>Extra 35%</th><th>Estado</th></tr>
+              <tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Pendientes</th><th>Extra 25%</th><th>Extra 35%</th><th>Estado</th></tr>
             </thead>
             <tbody>
               <% registros.forEach(function(r) { %>
@@ -51,6 +51,7 @@
                   <td><%= r.fecha %></td>
                   <td><%= r.horaEntrada %></td>
                   <td><%= r.horaSalida %></td>
+                  <td><%= (r.horasPendientes === null || r.horasPendientes === undefined) ? '—' : `${r.horasPendientes.toFixed(2)}h` %></td>
                   <td><%= r.horasExtra25 %></td>
                   <td><%= r.horasExtra35 %></td>
                   <td>
