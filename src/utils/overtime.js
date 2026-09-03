@@ -42,22 +42,24 @@ function calcularHorasExtra({
   return { extra25: round2(extra25), extra35: round2(extra35) };
 }
 
-// Cuantas horas le faltan a un trabajador para completar su turno de HOY,
-// segun su horario programado. null cuando no aplica (ya marco salida, o no
-// tiene horario configurado); 0 cuando el turno programado ya deberia haber
-// terminado pero todavia no marco salida.
+// Cuantas horas le faltan a un trabajador para llegar a su hora de salida
+// programada. Se mide contra la hora de salida YA MARCADA si existe (asi se
+// nota cuando alguien se fue antes de su horario, aunque el turno ya este
+// cerrado), o contra el instante actual si todavia no marca salida (cuenta
+// regresiva del turno en curso). null cuando no tiene horario configurado;
+// 0 cuando ya llego o paso su hora de salida programada.
 // fecha: la fecha (columna DATE) del registro de asistencia.
 // horaSalida: instante real de salida, o null/undefined si aun no marca.
 // horaSalidaProgramada: "HH:MM:SS" del horario del trabajador.
 function calcularHorasPendientes({ fecha, horaSalida, horaSalidaProgramada }) {
-  if (horaSalida) return null;
   if (!horaSalidaProgramada) return null;
 
   const fechaTexto = new Date(fecha).toISOString().slice(0, 10);
   const horaTexto = String(horaSalidaProgramada).slice(0, 5);
   const finProgramado = limaLocalInputToDate(`${fechaTexto}T${horaTexto}`);
 
-  const pendienteHoras = (finProgramado - new Date()) / (1000 * 60 * 60);
+  const referencia = horaSalida ? new Date(horaSalida) : new Date();
+  const pendienteHoras = (finProgramado - referencia) / (1000 * 60 * 60);
   return Math.max(0, round2(pendienteHoras));
 }
 
