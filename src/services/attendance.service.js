@@ -1,9 +1,11 @@
 const db = require('../config/db');
 const { hoyLima } = require('../utils/limaDate');
 const { calcularHorasExtra } = require('../utils/overtime');
+const { resolverHorarioDelDia } = require('./horario.service');
 
 const COLUMNAS_ASISTENCIA = [
   'attendance.id',
+  'attendance.worker_id',
   'workers.dni',
   'workers.nombre',
   'attendance.creado_en',
@@ -12,8 +14,7 @@ const COLUMNAS_ASISTENCIA = [
   'attendance.horas_extra_25',
   'attendance.horas_extra_35',
   'attendance.horas_extra_estado',
-  'attendance.editado_en',
-  'workers.hora_salida_programada'
+  'attendance.editado_en'
 ];
 
 async function buscarOCrearWorker({ dni, nombre, empresaId }) {
@@ -51,13 +52,13 @@ async function marcarSalida({ workerId }) {
     return { registro: existente, yaExistia: true };
   }
 
-  const worker = await db('workers').where({ id: workerId }).first();
   const horaSalida = new Date();
+  const horario = await resolverHorarioDelDia(workerId, existente.fecha);
   const { extra25, extra35 } = calcularHorasExtra({
     horaEntrada: existente.creado_en,
     horaSalida,
-    horaEntradaProgramada: worker.hora_entrada_programada,
-    horaSalidaProgramada: worker.hora_salida_programada
+    horaEntradaProgramada: horario && !horario.libre ? horario.horaEntrada : null,
+    horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
   });
 
   const [actualizado] = await db('attendance')
@@ -84,13 +85,13 @@ async function editarRegistro(id, { horaEntrada, horaSalida }, adminId, empresaI
       ? new Date(registro.hora_salida)
       : null;
 
-  const worker = await db('workers').where({ id: registro.worker_id }).first();
+  const horario = await resolverHorarioDelDia(registro.worker_id, registro.fecha);
   const { extra25, extra35 } = nuevaSalida
     ? calcularHorasExtra({
         horaEntrada: nuevaEntrada,
         horaSalida: nuevaSalida,
-        horaEntradaProgramada: worker.hora_entrada_programada,
-        horaSalidaProgramada: worker.hora_salida_programada
+        horaEntradaProgramada: horario && !horario.libre ? horario.horaEntrada : null,
+        horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
       })
     : { extra25: 0, extra35: 0 };
 
@@ -154,6 +155,7 @@ async function listarHistorialDeWorker({ workerId, desde, hasta }) {
     .andWhere('fecha', '<=', hasta)
     .select(
       'id',
+      'worker_id',
       'fecha',
       'creado_en',
       'hora_salida',

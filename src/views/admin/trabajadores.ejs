@@ -13,6 +13,7 @@
       { href: '/admin', texto: 'Hoy' },
       { href: '/admin/historial', texto: 'Historial' },
       { href: '/admin/trabajadores', texto: 'Trabajadores' },
+      { href: '/admin/turnos', texto: 'Turnos' },
       { href: '#', texto: 'Salir', id: 'logout-link' }
     ],
     logoEmpresaUrl: logoEmpresaUrl
@@ -20,14 +21,14 @@
 
   <div class="contenedor-ancho">
     <div class="tarjeta">
-      <h2>Horario por trabajador</h2>
-      <p class="subtitulo">Se usa para calcular horas extra (25% las primeras 2, 35% el resto). Deja los campos vacíos si un trabajador no tiene horario fijo.</p>
+      <h2>Trabajadores</h2>
+      <p class="subtitulo">Click en "Horario" para fijar su horario semanal o su turno rotativo — se usa para calcular horas extra, horas pendientes y si una marcación llegó a tiempo.</p>
       <table>
         <thead>
-          <tr><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th><th>Activo</th><th></th></tr>
+          <tr><th>Nombre</th><th>DNI</th><th>Horario</th><th>Activo</th><th></th></tr>
         </thead>
         <tbody id="tabla-trabajadores">
-          <tr><td colspan="6">Cargando...</td></tr>
+          <tr><td colspan="5">Cargando...</td></tr>
         </tbody>
       </table>
     </div>

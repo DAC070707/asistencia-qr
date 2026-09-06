@@ -46,11 +46,12 @@
               <tr><th>Fecha</th><th>Entrada</th><th>Salida</th><th>Pendientes</th><th>Extra 25%</th><th>Extra 35%</th><th>Estado</th></tr>
             </thead>
             <tbody>
+              <% const etiquetaEstado = { a_tiempo: 'A tiempo', tarde: 'Tarde', temprano: 'Temprano', fuera_de_horario: 'Fuera de horario' }; %>
               <% registros.forEach(function(r) { %>
                 <tr>
                   <td><%= r.fecha %></td>
-                  <td><%= r.horaEntrada %></td>
-                  <td><%= r.horaSalida %></td>
+                  <td><%= r.horaEntrada %><% if (r.entradaEstado) { %><br><span class="badge badge-<%= r.entradaEstado %>"><%= etiquetaEstado[r.entradaEstado] %></span><% } %></td>
+                  <td><%= r.horaSalida %><% if (r.salidaEstado) { %><br><span class="badge badge-<%= r.salidaEstado %>"><%= etiquetaEstado[r.salidaEstado] %></span><% } %></td>
                   <td><%= (r.horasPendientes === null || r.horasPendientes === undefined) ? '—' : `${r.horasPendientes.toFixed(2)}h` %></td>
                   <td><%= r.horasExtra25 %></td>
                   <td><%= r.horasExtra35 %></td>

@@ -45,6 +45,17 @@ function badgeEstado(estado) {
   return `<span class="badge badge-${estado}">${textos[estado] || estado}</span>`;
 }
 
+function badgeMarcacion(estado) {
+  if (!estado) return '';
+  const textos = {
+    a_tiempo: 'A tiempo',
+    tarde: 'Tarde',
+    temprano: 'Temprano',
+    fuera_de_horario: 'Fuera de horario'
+  };
+  return `<br><span class="badge badge-${estado}">${textos[estado] || estado}</span>`;
+}
+
 const desdeInput = document.getElementById('desde-input');
 const hastaInput = document.getElementById('hasta-input');
 const workerInput = document.getElementById('worker-input');
@@ -79,8 +90,8 @@ function filaHtml(r) {
       <td>${formatearFecha(r.fecha)}</td>
       <td>${escapeHtml(r.nombre)}</td>
       <td>${escapeHtml(r.dni)}</td>
-      <td class="celda-entrada">${formatearHora(r.creado_en)}</td>
-      <td class="celda-salida">${r.hora_salida ? formatearHora(r.hora_salida) : '—'}</td>
+      <td class="celda-entrada">${formatearHora(r.creado_en)}${badgeMarcacion(r.entrada_estado)}</td>
+      <td class="celda-salida">${r.hora_salida ? formatearHora(r.hora_salida) : '—'}${badgeMarcacion(r.salida_estado)}</td>
       <td>${r.horas_pendientes === null || r.horas_pendientes === undefined ? '—' : `${Number(r.horas_pendientes).toFixed(2)}h`}</td>
       <td>${Number(r.horas_extra_25).toFixed(2)}</td>
       <td>${Number(r.horas_extra_35).toFixed(2)}</td>

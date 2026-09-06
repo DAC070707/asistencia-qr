@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Horario — DANA</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <%- include('../partials/header', {
+    navHome: '/admin',
+    navLinks: [
+      { href: '/admin', texto: 'Hoy' },
+      { href: '/admin/historial', texto: 'Historial' },
+      { href: '/admin/trabajadores', texto: 'Trabajadores' },
+      { href: '/admin/turnos', texto: 'Turnos' },
+      { href: '#', texto: 'Salir', id: 'logout-link' }
+    ],
+    logoEmpresaUrl: logoEmpresaUrl
+  }) %>
+
+  <div class="contenedor-ancho" id="app" data-worker-id="<%= worker.id %>">
+    <p><a href="/admin/trabajadores" style="color:var(--ochre); text-decoration:none; font-family:var(--font-mono); font-size:0.78rem; text-transform:uppercase;">← Volver a trabajadores</a></p>
+
+    <div class="tarjeta">
+      <h2>Horario de <%= worker.nombre %></h2>
+      <p class="subtitulo">Elige un solo tipo de horario para este trabajador. Cambiar de tipo reemplaza la configuración anterior.</p>
+      <div class="fila-acciones">
+        <label style="margin:0; font-family:var(--font-body); text-transform:none; letter-spacing:0;">
+          <input type="radio" name="tipo-horario" value="" /> Sin asignar
+        </label>
+        <label style="margin:0; font-family:var(--font-body); text-transform:none; letter-spacing:0;">
+          <input type="radio" name="tipo-horario" value="semanal" /> Semanal
+        </label>
+        <label style="margin:0; font-family:var(--font-body); text-transform:none; letter-spacing:0;">
+          <input type="radio" name="tipo-horario" value="rotativo" /> Rotativo
+        </label>
+      </div>
+
+      <div id="bloque-semanal" hidden>
+        <table>
+          <thead><tr><th>Día</th><th>Libre</th><th>Entrada</th><th>Salida</th></tr></thead>
+          <tbody id="tabla-semanal"></tbody>
+        </table>
+        <div class="fila-acciones">
+          <button id="guardar-semanal-btn">Guardar horario semanal</button>
+        </div>
+      </div>
+
+      <div id="bloque-rotativo" hidden>
+        <label style="margin:0 0 12px; display:block;">Fecha ancla del ciclo (día 1 del patrón)
+          <input type="date" id="ancla-input" style="max-width:180px;" />
+        </label>
+        <p class="subtitulo" style="margin-bottom:8px;">Secuencia de pasos — se repite cada N días (N = cantidad de pasos que agregues):</p>
+        <div id="pasos-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
+        <div class="fila-acciones">
+          <button type="button" id="agregar-paso-btn" class="secundario">+ Agregar paso</button>
+          <button id="guardar-rotacion-btn">Guardar rotación</button>
+        </div>
+      </div>
+
+      <div id="sin-horario-msg" hidden>
+        <p class="subtitulo">Este trabajador no tiene horario asignado — no se calcularán horas extra, pendientes ni clasificación de marcaciones hasta que asignes uno.</p>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Excepciones puntuales</h2>
+      <p class="subtitulo">Para un día específico (permiso, cambio de turno de último momento), sin romper el patrón general.</p>
+      <div id="excepcion-error"></div>
+      <form id="excepcion-form" class="fila-acciones">
+        <input type="date" id="exc-fecha" required style="max-width:150px;" />
+        <label style="margin:0; font-family:var(--font-body); text-transform:none; letter-spacing:0;">
+          <input type="checkbox" id="exc-libre" /> Libre
+        </label>
+        <select id="exc-plantilla" style="padding:6px 8px; border:1.5px solid var(--line); border-radius:2px; background:var(--paper-light); font-family:var(--font-body);">
+          <option value="">(horario ad-hoc)</option>
+        </select>
+        <input type="time" id="exc-entrada" />
+        <input type="time" id="exc-salida" />
+        <input type="text" id="exc-motivo" placeholder="Motivo (opcional)" style="max-width:180px; margin:0;" />
+        <button type="submit">Agregar excepción</button>
+      </form>
+      <table>
+        <thead><tr><th>Fecha</th><th>Detalle</th><th>Motivo</th><th></th></tr></thead>
+        <tbody id="tabla-excepciones">
+          <tr><td colspan="4">Cargando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <%- include('../partials/footer') %>
+
+  <script src="/js/admin-horario-trabajador.js"></script>
+</body>
+</html>

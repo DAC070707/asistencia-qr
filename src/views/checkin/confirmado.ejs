@@ -16,6 +16,15 @@
         <%= yaExistia ? `Ya habías marcado tu ${tipo}` : `${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada` %>
       </h1>
       <p class="subtitulo">Hola <strong><%= nombre %></strong>, tu <%= tipo %> de hoy quedó registrada a las <strong><%= hora %></strong>.</p>
+      <% if (estadoMarcacion) { %>
+        <span class="badge badge-<%= estadoMarcacion %>">
+          <% if (estadoMarcacion === 'a_tiempo') { %>A tiempo
+          <% } else if (estadoMarcacion === 'tarde') { %>Tarde
+          <% } else if (estadoMarcacion === 'temprano') { %>Temprano
+          <% } else { %>Fuera de horario
+          <% } %>
+        </span>
+      <% } %>
     </div>
   </div>
 

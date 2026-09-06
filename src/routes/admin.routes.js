@@ -20,6 +20,12 @@ router.get('/admin/login', adminController.paginaLogin);
 router.get('/admin', requireAdminAuth, adminController.paginaDashboard);
 router.get('/admin/historial', requireAdminAuth, adminController.paginaHistorial);
 router.get('/admin/trabajadores', requireAdminAuth, adminController.paginaTrabajadores);
+router.get(
+  '/admin/trabajadores/:id/horario',
+  requireAdminAuth,
+  asyncHandler(adminController.paginaHorarioTrabajador)
+);
+router.get('/admin/turnos', requireAdminAuth, adminController.paginaTurnos);
 
 // API
 router.get('/api/admin/qr/today', requireAdminAuth, asyncHandler(adminController.qrDeHoy));
@@ -69,6 +75,49 @@ router.post(
   requireAdminAuth,
   uploadLogo.single('logo'),
   asyncHandler(adminController.subirLogo)
+);
+
+// Horario del trabajador (semanal o rotativo)
+router.get(
+  '/api/admin/workers/:id/horario',
+  requireAdminAuth,
+  asyncHandler(adminController.obtenerHorarioTrabajador)
+);
+router.put(
+  '/api/admin/workers/:id/horario',
+  requireAdminAuth,
+  asyncHandler(adminController.guardarHorarioTrabajador)
+);
+
+// Excepciones puntuales de horario
+router.get(
+  '/api/admin/workers/:id/excepciones',
+  requireAdminAuth,
+  asyncHandler(adminController.listarExcepcionesTrabajador)
+);
+router.post(
+  '/api/admin/workers/:id/excepciones',
+  requireAdminAuth,
+  asyncHandler(adminController.crearExcepcionTrabajador)
+);
+router.delete(
+  '/api/admin/workers/:id/excepciones/:excepcionId',
+  requireAdminAuth,
+  asyncHandler(adminController.eliminarExcepcionTrabajador)
+);
+
+// Plantillas de turno (Nivel 2)
+router.get('/api/admin/turnos', requireAdminAuth, asyncHandler(adminController.listarTurnos));
+router.post('/api/admin/turnos', requireAdminAuth, asyncHandler(adminController.crearTurno));
+router.patch(
+  '/api/admin/turnos/:id',
+  requireAdminAuth,
+  asyncHandler(adminController.actualizarTurno)
+);
+router.delete(
+  '/api/admin/turnos/:id',
+  requireAdminAuth,
+  asyncHandler(adminController.eliminarTurno)
 );
 
 // Publico: se muestra en el header tanto del panel admin como del check-in

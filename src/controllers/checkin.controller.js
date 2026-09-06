@@ -4,7 +4,8 @@ const dailyCodeService = require('../services/dailyCode.service');
 const attendanceService = require('../services/attendance.service');
 const db = require('../config/db');
 const { horaLima, hoyLima, primerDiaMesLima } = require('../utils/limaDate');
-const { calcularHorasPendientes } = require('../utils/overtime');
+const horarioService = require('../services/horario.service');
+const { clasificarEntrada, clasificarSalida } = require('../utils/overtime');
 
 const DEVICE_COOKIE_OPTS = {
   httpOnly: true,
@@ -136,11 +137,13 @@ async function marcar(req, res) {
       dailyCodeId: codigo.id,
       empresaId: codigo.empresa_id
     });
+    const horario = await horarioService.resolverHorarioDelDia(worker.id, registro.fecha);
     return res.render('checkin/confirmado', {
       nombre: worker.nombre,
       logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
       tipo: 'entrada',
       hora: horaLima(new Date(registro.creado_en)),
+      estadoMarcacion: clasificarEntrada({ horaReal: registro.creado_en, horario }),
       yaExistia
     });
   }
@@ -155,11 +158,13 @@ async function marcar(req, res) {
       );
     }
 
+    const horario = await horarioService.resolverHorarioDelDia(worker.id, resultado.registro.fecha);
     return res.render('checkin/confirmado', {
       nombre: worker.nombre,
       logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
       tipo: 'salida',
       hora: horaLima(new Date(resultado.registro.hora_salida)),
+      estadoMarcacion: clasificarSalida({ horaReal: resultado.registro.hora_salida, horario }),
       yaExistia: resultado.yaExistia
     });
   }
@@ -181,11 +186,12 @@ async function historialWorker(req, res) {
     hasta = hoyLima();
   }
 
-  const registros = await attendanceService.listarHistorialDeWorker({
+  const registrosCrudos = await attendanceService.listarHistorialDeWorker({
     workerId: worker.id,
     desde,
     hasta
   });
+  const registros = await horarioService.decorarConHorario(registrosCrudos);
 
   let totalAprobado25 = 0;
   let totalAprobado35 = 0;
@@ -207,11 +213,9 @@ async function historialWorker(req, res) {
       fecha: new Date(r.fecha).toISOString().slice(0, 10),
       horaEntrada: horaLima(new Date(r.creado_en)),
       horaSalida: r.hora_salida ? horaLima(new Date(r.hora_salida)) : '—',
-      horasPendientes: calcularHorasPendientes({
-        fecha: r.fecha,
-        horaSalida: r.hora_salida,
-        horaSalidaProgramada: worker.hora_salida_programada
-      }),
+      horasPendientes: r.horas_pendientes,
+      entradaEstado: r.entrada_estado,
+      salidaEstado: r.salida_estado,
       horasExtra25: Number(r.horas_extra_25),
       horasExtra35: Number(r.horas_extra_35),
       estado: r.horas_extra_estado

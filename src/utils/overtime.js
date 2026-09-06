@@ -63,4 +63,49 @@ function calcularHorasPendientes({ fecha, horaSalida, horaSalidaProgramada }) {
   return Math.max(0, round2(pendienteHoras));
 }
 
-module.exports = { calcularHorasExtra, calcularHorasPendientes };
+const TOLERANCIA_MIN = 5;
+const TOLERANCIA_HORAS = TOLERANCIA_MIN / 60;
+
+// Hora del dia (decimal, hora de Lima) de un instante real, para compararla
+// contra las horas programadas ("HH:MM:SS") con la misma escala que horaATexto.
+function horaDecimalLima(instante) {
+  const partes = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'America/Lima',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(new Date(instante));
+  const h = Number(partes.find((p) => p.type === 'hour').value);
+  const m = Number(partes.find((p) => p.type === 'minute').value);
+  return h + m / 60;
+}
+
+// horario: el resultado de horarioService.resolverHorarioDelDia (o null).
+// Devuelve 'a_tiempo' | 'tarde' | 'fuera_de_horario' | null (sin horario configurado).
+function clasificarEntrada({ horaReal, horario }) {
+  if (!horario) return null;
+  if (horario.libre) return 'fuera_de_horario';
+  const prog = horaATexto(horario.horaEntrada);
+  if (prog === null) return null;
+  const real = horaDecimalLima(horaReal);
+  return real > prog + TOLERANCIA_HORAS ? 'tarde' : 'a_tiempo';
+}
+
+// Devuelve 'a_tiempo' | 'temprano' | 'tarde' | 'fuera_de_horario' | null.
+function clasificarSalida({ horaReal, horario }) {
+  if (!horario) return null;
+  if (horario.libre) return 'fuera_de_horario';
+  const prog = horaATexto(horario.horaSalida);
+  if (prog === null) return null;
+  const real = horaDecimalLima(horaReal);
+  if (real < prog - TOLERANCIA_HORAS) return 'temprano';
+  if (real > prog + TOLERANCIA_HORAS) return 'tarde';
+  return 'a_tiempo';
+}
+
+module.exports = {
+  calcularHorasExtra,
+  calcularHorasPendientes,
+  clasificarEntrada,
+  clasificarSalida
+};

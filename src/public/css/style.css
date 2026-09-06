@@ -192,6 +192,11 @@ table input[type="datetime-local"] {
 .badge-aprobado { color: var(--green); }
 .badge-rechazado { color: var(--red); }
 
+.badge-a_tiempo { color: var(--green); }
+.badge-tarde { color: var(--red); }
+.badge-temprano { color: var(--ochre); }
+.badge-fuera_de_horario { color: var(--red); }
+
 .boton-mini {
   padding: 5px 11px;
   font-size: .72rem;

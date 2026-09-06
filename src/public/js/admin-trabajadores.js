@@ -4,23 +4,24 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-function soloHora(valorTime) {
-  // Postgres devuelve "HH:MM:SS" para columnas TIME; el input type=time quiere "HH:MM"
-  return valorTime ? valorTime.slice(0, 5) : '';
-}
-
 const tbody = document.getElementById('tabla-trabajadores');
+
+function etiquetaHorario(tipoHorario) {
+  if (tipoHorario === 'semanal') return 'Semanal';
+  if (tipoHorario === 'rotativo') return 'Rotativo';
+  return 'Sin asignar';
+}
 
 async function cargarWorkers() {
   const resp = await fetch('/api/admin/workers');
   if (!resp.ok) {
-    tbody.innerHTML = '<tr><td colspan="6">Error al cargar</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">Error al cargar</td></tr>';
     return;
   }
   const workers = await resp.json();
 
   if (workers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6">Aún no hay trabajadores registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">Aún no hay trabajadores registrados</td></tr>';
     return;
   }
 
@@ -30,8 +31,7 @@ async function cargarWorkers() {
         <tr data-id="${w.id}">
           <td>${escapeHtml(w.nombre)}</td>
           <td>${escapeHtml(w.dni)}</td>
-          <td><input type="time" class="input-entrada" value="${soloHora(w.hora_entrada_programada)}" /></td>
-          <td><input type="time" class="input-salida" value="${soloHora(w.hora_salida_programada)}" /></td>
+          <td>${etiquetaHorario(w.tipo_horario)} — <a href="/admin/trabajadores/${w.id}/horario">Configurar</a></td>
           <td><input type="checkbox" class="input-activo" ${w.activo ? 'checked' : ''} /></td>
           <td><button type="button" class="boton-mini guardar-btn">Guardar</button></td>
         </tr>`
@@ -44,8 +44,6 @@ tbody.addEventListener('click', async (e) => {
 
   const fila = e.target.closest('tr');
   const id = fila.dataset.id;
-  const horaEntrada = fila.querySelector('.input-entrada').value;
-  const horaSalida = fila.querySelector('.input-salida').value;
   const activo = fila.querySelector('.input-activo').checked;
 
   e.target.disabled = true;
@@ -55,11 +53,7 @@ tbody.addEventListener('click', async (e) => {
     const resp = await fetch(`/api/admin/workers/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        hora_entrada_programada: horaEntrada || null,
-        hora_salida_programada: horaSalida || null,
-        activo
-      })
+      body: JSON.stringify({ activo })
     });
     e.target.textContent = resp.ok ? 'Guardado ✓' : 'Error';
   } catch (err) {
