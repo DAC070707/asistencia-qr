@@ -100,6 +100,41 @@ document.getElementById('logout-link').addEventListener('click', async (e) => {
   window.location.href = '/admin/login';
 });
 
+async function cargarConfiguracion() {
+  const resp = await fetch('/api/admin/empresa/configuracion');
+  if (!resp.ok) return;
+  const data = await resp.json();
+  document.getElementById('tolerancia-input').value = data.toleranciaEntradaMinutos;
+}
+
+document.getElementById('tolerancia-btn').addEventListener('click', async () => {
+  const errorBox = document.getElementById('tolerancia-error');
+  const btn = document.getElementById('tolerancia-btn');
+  errorBox.innerHTML = '';
+  btn.disabled = true;
+
+  const toleranciaEntradaMinutos = document.getElementById('tolerancia-input').value;
+  try {
+    const resp = await fetch('/api/admin/empresa/configuracion', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ toleranciaEntradaMinutos })
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      errorBox.innerHTML = `<div class="error">${data.error || 'No se pudo guardar'}</div>`;
+      return;
+    }
+    btn.textContent = 'Guardado ✓';
+    setTimeout(() => {
+      btn.textContent = 'Guardar';
+    }, 1500);
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 cargarQr();
 cargarAsistenciaHoy();
+cargarConfiguracion();
 setInterval(cargarAsistenciaHoy, POLL_MS);

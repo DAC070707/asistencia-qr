@@ -138,12 +138,19 @@ async function marcar(req, res) {
       empresaId: codigo.empresa_id
     });
     const horario = await horarioService.resolverHorarioDelDia(worker.id, registro.fecha);
+    const tolerancia = await horarioService.obtenerToleranciaEmpresa(codigo.empresa_id);
+    const clasificacion = clasificarEntrada({
+      horaReal: registro.creado_en,
+      horario,
+      toleranciaMinutos: tolerancia
+    });
     return res.render('checkin/confirmado', {
       nombre: worker.nombre,
       logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
       tipo: 'entrada',
       hora: horaLima(new Date(registro.creado_en)),
-      estadoMarcacion: clasificarEntrada({ horaReal: registro.creado_en, horario }),
+      estadoMarcacion: clasificacion.estado,
+      minutosMarcacion: clasificacion.minutos,
       yaExistia
     });
   }
@@ -159,12 +166,14 @@ async function marcar(req, res) {
     }
 
     const horario = await horarioService.resolverHorarioDelDia(worker.id, resultado.registro.fecha);
+    const clasificacion = clasificarSalida({ horaReal: resultado.registro.hora_salida, horario });
     return res.render('checkin/confirmado', {
       nombre: worker.nombre,
       logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
       tipo: 'salida',
       hora: horaLima(new Date(resultado.registro.hora_salida)),
-      estadoMarcacion: clasificarSalida({ horaReal: resultado.registro.hora_salida, horario }),
+      estadoMarcacion: clasificacion.estado,
+      minutosMarcacion: clasificacion.minutos,
       yaExistia: resultado.yaExistia
     });
   }
@@ -191,14 +200,21 @@ async function historialWorker(req, res) {
     desde,
     hasta
   });
-  const registros = await horarioService.decorarConHorario(registrosCrudos);
+  const tolerancia = await horarioService.obtenerToleranciaEmpresa(worker.empresa_id);
+  const registros = await horarioService.decorarConHorario(registrosCrudos, tolerancia);
 
   let totalAprobado25 = 0;
   let totalAprobado35 = 0;
+  let diasTarde = 0;
+  let minutosAcumulados = 0;
   for (const r of registros) {
     if (r.horas_extra_estado === 'aprobado') {
       totalAprobado25 += Number(r.horas_extra_25);
       totalAprobado35 += Number(r.horas_extra_35);
+    }
+    if (r.entrada_estado === 'tarde') {
+      diasTarde += 1;
+      minutosAcumulados += r.entrada_minutos || 0;
     }
   }
 
@@ -209,13 +225,17 @@ async function historialWorker(req, res) {
     hasta,
     totalAprobado25: totalAprobado25.toFixed(2),
     totalAprobado35: totalAprobado35.toFixed(2),
+    diasTarde,
+    minutosAcumulados,
     registros: registros.map((r) => ({
       fecha: new Date(r.fecha).toISOString().slice(0, 10),
       horaEntrada: horaLima(new Date(r.creado_en)),
       horaSalida: r.hora_salida ? horaLima(new Date(r.hora_salida)) : '—',
       horasPendientes: r.horas_pendientes,
       entradaEstado: r.entrada_estado,
+      entradaMinutos: r.entrada_minutos,
       salidaEstado: r.salida_estado,
+      salidaMinutos: r.salida_minutos,
       horasExtra25: Number(r.horas_extra_25),
       horasExtra35: Number(r.horas_extra_35),
       estado: r.horas_extra_estado

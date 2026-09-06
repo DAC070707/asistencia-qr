@@ -63,8 +63,10 @@ function calcularHorasPendientes({ fecha, horaSalida, horaSalidaProgramada }) {
   return Math.max(0, round2(pendienteHoras));
 }
 
-const TOLERANCIA_MIN = 5;
-const TOLERANCIA_HORAS = TOLERANCIA_MIN / 60;
+// Tolerancia fija para la SALIDA (temprano/tarde) — la de la ENTRADA es
+// configurable por empresa (empresas.tolerancia_entrada_minutos) y se recibe
+// como parametro en clasificarEntrada.
+const TOLERANCIA_SALIDA_MIN = 5;
 
 // Hora del dia (decimal, hora de Lima) de un instante real, para compararla
 // contra las horas programadas ("HH:MM:SS") con la misma escala que horaATexto.
@@ -80,27 +82,43 @@ function horaDecimalLima(instante) {
   return h + m / 60;
 }
 
-// horario: el resultado de horarioService.resolverHorarioDelDia (o null).
-// Devuelve 'a_tiempo' | 'tarde' | 'fuera_de_horario' | null (sin horario configurado).
-function clasificarEntrada({ horaReal, horario }) {
-  if (!horario) return null;
-  if (horario.libre) return 'fuera_de_horario';
-  const prog = horaATexto(horario.horaEntrada);
-  if (prog === null) return null;
-  const real = horaDecimalLima(horaReal);
-  return real > prog + TOLERANCIA_HORAS ? 'tarde' : 'a_tiempo';
+function minutosRedondeados(horasDecimal) {
+  return Math.round(horasDecimal * 60);
 }
 
-// Devuelve 'a_tiempo' | 'temprano' | 'tarde' | 'fuera_de_horario' | null.
-function clasificarSalida({ horaReal, horario }) {
-  if (!horario) return null;
-  if (horario.libre) return 'fuera_de_horario';
-  const prog = horaATexto(horario.horaSalida);
-  if (prog === null) return null;
+// horario: el resultado de horarioService.resolverHorarioDelDia (o null).
+// toleranciaMinutos: minutos de tolerancia de la empresa (obligatorio, sin
+// default silencioso — se resuelve explicitamente con
+// horarioService.obtenerToleranciaEmpresa antes de llamar esta funcion).
+// Devuelve { estado: 'a_tiempo'|'tarde'|'fuera_de_horario'|null, minutos }.
+// "minutos" es la tardanza exacta (solo cuando estado='tarde'), null si no aplica.
+function clasificarEntrada({ horaReal, horario, toleranciaMinutos }) {
+  if (typeof toleranciaMinutos !== 'number') {
+    throw new Error('clasificarEntrada requiere toleranciaMinutos');
+  }
+  if (!horario) return { estado: null, minutos: null };
+  if (horario.libre) return { estado: 'fuera_de_horario', minutos: null };
+  const prog = horaATexto(horario.horaEntrada);
+  if (prog === null) return { estado: null, minutos: null };
+
   const real = horaDecimalLima(horaReal);
-  if (real < prog - TOLERANCIA_HORAS) return 'temprano';
-  if (real > prog + TOLERANCIA_HORAS) return 'tarde';
-  return 'a_tiempo';
+  const diffMin = minutosRedondeados(real - prog);
+  if (diffMin > toleranciaMinutos) return { estado: 'tarde', minutos: diffMin };
+  return { estado: 'a_tiempo', minutos: null };
+}
+
+// Devuelve { estado: 'a_tiempo'|'temprano'|'tarde'|'fuera_de_horario'|null, minutos }.
+function clasificarSalida({ horaReal, horario }) {
+  if (!horario) return { estado: null, minutos: null };
+  if (horario.libre) return { estado: 'fuera_de_horario', minutos: null };
+  const prog = horaATexto(horario.horaSalida);
+  if (prog === null) return { estado: null, minutos: null };
+
+  const real = horaDecimalLima(horaReal);
+  const diffMin = minutosRedondeados(real - prog);
+  if (diffMin < -TOLERANCIA_SALIDA_MIN) return { estado: 'temprano', minutos: -diffMin };
+  if (diffMin > TOLERANCIA_SALIDA_MIN) return { estado: 'tarde', minutos: diffMin };
+  return { estado: 'a_tiempo', minutos: null };
 }
 
 module.exports = {

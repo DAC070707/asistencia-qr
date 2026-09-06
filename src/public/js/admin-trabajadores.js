@@ -15,13 +15,13 @@ function etiquetaHorario(tipoHorario) {
 async function cargarWorkers() {
   const resp = await fetch('/api/admin/workers');
   if (!resp.ok) {
-    tbody.innerHTML = '<tr><td colspan="5">Error al cargar</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">Error al cargar</td></tr>';
     return;
   }
   const workers = await resp.json();
 
   if (workers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5">Aún no hay trabajadores registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">Aún no hay trabajadores registrados</td></tr>';
     return;
   }
 
@@ -33,6 +33,7 @@ async function cargarWorkers() {
           <td>${escapeHtml(w.dni)}</td>
           <td>${etiquetaHorario(w.tipo_horario)} — <a href="/admin/trabajadores/${w.id}/horario">Configurar</a></td>
           <td><input type="checkbox" class="input-activo" ${w.activo ? 'checked' : ''} /></td>
+          <td><input type="checkbox" class="input-horas-extra" ${w.horas_extra_activas ? 'checked' : ''} /></td>
           <td><button type="button" class="boton-mini guardar-btn">Guardar</button></td>
         </tr>`
     )
@@ -45,6 +46,7 @@ tbody.addEventListener('click', async (e) => {
   const fila = e.target.closest('tr');
   const id = fila.dataset.id;
   const activo = fila.querySelector('.input-activo').checked;
+  const horasExtraActivas = fila.querySelector('.input-horas-extra').checked;
 
   e.target.disabled = true;
   e.target.textContent = 'Guardando...';
@@ -53,7 +55,7 @@ tbody.addEventListener('click', async (e) => {
     const resp = await fetch(`/api/admin/workers/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activo })
+      body: JSON.stringify({ activo, horas_extra_activas: horasExtraActivas })
     });
     e.target.textContent = resp.ok ? 'Guardado ✓' : 'Error';
   } catch (err) {

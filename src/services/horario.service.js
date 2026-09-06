@@ -257,10 +257,24 @@ async function eliminarExcepcion(id, workerId) {
 // cada fila (worker_id, fecha) — cada uno puede caer en un dia distinto de
 // la semana, una rotacion, o una excepcion puntual, asi que se resuelve por
 // fila y no de forma global.
-async function decorarConHorario(registros) {
+async function obtenerToleranciaEmpresa(empresaId) {
+  const empresa = await db('empresas').where({ id: empresaId }).first();
+  return empresa ? empresa.tolerancia_entrada_minutos : 5;
+}
+
+// toleranciaMinutos: tolerancia de ENTRADA de la empresa (resolver una sola
+// vez por request con obtenerToleranciaEmpresa, no por fila).
+async function decorarConHorario(registros, toleranciaMinutos) {
+  if (typeof toleranciaMinutos !== 'number') {
+    throw new Error('decorarConHorario requiere toleranciaMinutos');
+  }
   return Promise.all(
     registros.map(async (r) => {
       const horario = await resolverHorarioDelDia(r.worker_id, r.fecha);
+      const entrada = clasificarEntrada({ horaReal: r.creado_en, horario, toleranciaMinutos });
+      const salida = r.hora_salida
+        ? clasificarSalida({ horaReal: r.hora_salida, horario })
+        : { estado: null, minutos: null };
       return {
         ...r,
         horas_pendientes: calcularHorasPendientes({
@@ -268,8 +282,10 @@ async function decorarConHorario(registros) {
           horaSalida: r.hora_salida,
           horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
         }),
-        entrada_estado: clasificarEntrada({ horaReal: r.creado_en, horario }),
-        salida_estado: r.hora_salida ? clasificarSalida({ horaReal: r.hora_salida, horario }) : null
+        entrada_estado: entrada.estado,
+        entrada_minutos: entrada.minutos,
+        salida_estado: salida.estado,
+        salida_minutos: salida.minutos
       };
     })
   );
@@ -279,6 +295,7 @@ module.exports = {
   diaSemanaDeFecha,
   resolverHorarioDelDia,
   decorarConHorario,
+  obtenerToleranciaEmpresa,
   obtenerHorarioDeWorker,
   guardarHorarioSemanal,
   guardarRotacion,

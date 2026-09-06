@@ -19,8 +19,8 @@
       <% if (estadoMarcacion) { %>
         <span class="badge badge-<%= estadoMarcacion %>">
           <% if (estadoMarcacion === 'a_tiempo') { %>A tiempo
-          <% } else if (estadoMarcacion === 'tarde') { %>Tarde
-          <% } else if (estadoMarcacion === 'temprano') { %>Temprano
+          <% } else if (estadoMarcacion === 'tarde') { %>Tarde<% if (minutosMarcacion) { %> · <%= minutosMarcacion %> min<% } %>
+          <% } else if (estadoMarcacion === 'temprano') { %>Temprano<% if (minutosMarcacion) { %> · <%= minutosMarcacion %> min<% } %>
           <% } else { %>Fuera de horario
           <% } %>
         </span>

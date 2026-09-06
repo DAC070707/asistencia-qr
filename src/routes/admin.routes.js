@@ -77,6 +77,18 @@ router.post(
   asyncHandler(adminController.subirLogo)
 );
 
+// Configuracion de la empresa (tolerancia de entrada, etc.)
+router.get(
+  '/api/admin/empresa/configuracion',
+  requireAdminAuth,
+  asyncHandler(adminController.obtenerConfiguracionEmpresa)
+);
+router.patch(
+  '/api/admin/empresa/configuracion',
+  requireAdminAuth,
+  asyncHandler(adminController.guardarConfiguracionEmpresa)
+);
+
 // Horario del trabajador (semanal o rotativo)
 router.get(
   '/api/admin/workers/:id/horario',

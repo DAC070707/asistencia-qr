@@ -32,6 +32,23 @@ async function subirLogo(req, res) {
   res.json({ url: `/logo/${req.admin.empresaId}?v=${Date.now()}` });
 }
 
+async function obtenerConfiguracionEmpresa(req, res) {
+  const empresa = await db('empresas').where({ id: req.admin.empresaId }).first();
+  res.json({ toleranciaEntradaMinutos: empresa.tolerancia_entrada_minutos });
+}
+
+async function guardarConfiguracionEmpresa(req, res) {
+  const { toleranciaEntradaMinutos } = req.body;
+  const minutos = Number(toleranciaEntradaMinutos);
+  if (!Number.isInteger(minutos) || minutos < 0 || minutos > 120) {
+    return res.status(400).json({ error: 'La tolerancia debe ser un entero entre 0 y 120 minutos' });
+  }
+  await db('empresas')
+    .where({ id: req.admin.empresaId })
+    .update({ tolerancia_entrada_minutos: minutos });
+  res.json({ toleranciaEntradaMinutos: minutos });
+}
+
 async function servirLogo(req, res) {
   const { empresaId } = req.params;
   const empresa = await db('empresas').where({ id: empresaId }).first();
@@ -134,7 +151,8 @@ async function asistenciaPorFecha(req, res) {
     ...rango
   });
 
-  res.json(await horarioService.decorarConHorario(registros));
+  const tolerancia = await horarioService.obtenerToleranciaEmpresa(req.admin.empresaId);
+  res.json(await horarioService.decorarConHorario(registros, tolerancia));
 }
 
 async function exportarCsv(req, res) {
@@ -204,10 +222,11 @@ async function listarWorkers(req, res) {
 
 async function actualizarWorker(req, res) {
   const { id } = req.params;
-  const { activo, nombre } = req.body;
+  const { activo, nombre, horas_extra_activas } = req.body;
 
   const cambios = {};
   if (typeof activo === 'boolean') cambios.activo = activo;
+  if (typeof horas_extra_activas === 'boolean') cambios.horas_extra_activas = horas_extra_activas;
   if (typeof nombre === 'string' && nombre.trim()) cambios.nombre = nombre.trim();
 
   if (Object.keys(cambios).length === 0) {
@@ -467,6 +486,8 @@ module.exports = {
   cambiarEstadoHorasExtra,
   subirLogo,
   servirLogo,
+  obtenerConfiguracionEmpresa,
+  guardarConfiguracionEmpresa,
   obtenerHorarioTrabajador,
   guardarHorarioTrabajador,
   listarTurnos,

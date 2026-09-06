@@ -53,13 +53,16 @@ async function marcarSalida({ workerId }) {
   }
 
   const horaSalida = new Date();
+  const worker = await db('workers').where({ id: workerId }).first();
   const horario = await resolverHorarioDelDia(workerId, existente.fecha);
-  const { extra25, extra35 } = calcularHorasExtra({
-    horaEntrada: existente.creado_en,
-    horaSalida,
-    horaEntradaProgramada: horario && !horario.libre ? horario.horaEntrada : null,
-    horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
-  });
+  const { extra25, extra35 } = worker.horas_extra_activas
+    ? calcularHorasExtra({
+        horaEntrada: existente.creado_en,
+        horaSalida,
+        horaEntradaProgramada: horario && !horario.libre ? horario.horaEntrada : null,
+        horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
+      })
+    : { extra25: 0, extra35: 0 };
 
   const [actualizado] = await db('attendance')
     .where({ id: existente.id })
@@ -85,15 +88,17 @@ async function editarRegistro(id, { horaEntrada, horaSalida }, adminId, empresaI
       ? new Date(registro.hora_salida)
       : null;
 
+  const worker = await db('workers').where({ id: registro.worker_id }).first();
   const horario = await resolverHorarioDelDia(registro.worker_id, registro.fecha);
-  const { extra25, extra35 } = nuevaSalida
-    ? calcularHorasExtra({
-        horaEntrada: nuevaEntrada,
-        horaSalida: nuevaSalida,
-        horaEntradaProgramada: horario && !horario.libre ? horario.horaEntrada : null,
-        horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
-      })
-    : { extra25: 0, extra35: 0 };
+  const { extra25, extra35 } =
+    nuevaSalida && worker.horas_extra_activas
+      ? calcularHorasExtra({
+          horaEntrada: nuevaEntrada,
+          horaSalida: nuevaSalida,
+          horaEntradaProgramada: horario && !horario.libre ? horario.horaEntrada : null,
+          horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
+        })
+      : { extra25: 0, extra35: 0 };
 
   const [actualizado] = await db('attendance')
     .where({ id, empresa_id: empresaId })

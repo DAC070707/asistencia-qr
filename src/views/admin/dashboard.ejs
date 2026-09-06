@@ -45,6 +45,18 @@
     </div>
 
     <div class="tarjeta">
+      <h2>Configuración</h2>
+      <p class="subtitulo">Minutos de tolerancia antes de que una entrada cuente como "Tarde". La salida usa una tolerancia fija de 5 min.</p>
+      <div class="fila-acciones">
+        <label style="margin:0;">Tolerancia de entrada (min)
+          <input type="number" id="tolerancia-input" min="0" max="120" step="1" style="max-width:100px;" />
+        </label>
+        <button id="tolerancia-btn" class="secundario">Guardar</button>
+      </div>
+      <div id="tolerancia-error"></div>
+    </div>
+
+    <div class="tarjeta">
       <h2>Asistencia de hoy <span id="contador-hoy" style="color:var(--muted); font-family:var(--font-mono); text-transform:none; letter-spacing:0;"></span></h2>
       <table>
         <thead>
