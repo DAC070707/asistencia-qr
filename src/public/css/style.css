@@ -242,6 +242,19 @@ a { color: var(--blue); }
   flex-shrink: 0;
 }
 .avatar-chip span { font-size: .82rem; color: var(--muted); font-weight: 500; }
+.avatar svg { width: 18px; height: 18px; }
+
+.empresa-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 8px 18px 8px 8px;
+  box-shadow: var(--shadow-sm);
+}
+.empresa-chip span { font-family: var(--font-display); font-weight: 700; font-size: .92rem; color: var(--ink); }
 
 .back-link {
   display: inline-flex;
@@ -476,6 +489,10 @@ button:disabled:hover { background: var(--blue); }
   background: var(--surface);
   border-radius: var(--radius-sm);
 }
+.qr-image-lg { width: 260px; height: 260px; }
+
+.qr-hero { max-width: 460px; margin: 0 auto; }
+.qr-hero .card { margin-bottom: 20px; }
 
 table { width: 100%; border-collapse: collapse; font-size: .88rem; }
 th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid var(--border); }

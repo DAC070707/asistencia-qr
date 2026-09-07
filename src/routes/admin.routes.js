@@ -17,15 +17,24 @@ const uploadLogo = multer({
 
 // Paginas (EJS)
 router.get('/admin/login', adminController.paginaLogin);
-router.get('/admin', requireAdminAuth, adminController.paginaDashboard);
-router.get('/admin/historial', requireAdminAuth, adminController.paginaHistorial);
-router.get('/admin/trabajadores', requireAdminAuth, adminController.paginaTrabajadores);
+router.get('/admin', requireAdminAuth, asyncHandler(adminController.paginaDashboard));
+router.get('/admin/historial', requireAdminAuth, asyncHandler(adminController.paginaHistorial));
+router.get(
+  '/admin/trabajadores',
+  requireAdminAuth,
+  asyncHandler(adminController.paginaTrabajadores)
+);
 router.get(
   '/admin/trabajadores/:id/horario',
   requireAdminAuth,
   asyncHandler(adminController.paginaHorarioTrabajador)
 );
-router.get('/admin/turnos', requireAdminAuth, adminController.paginaTurnos);
+router.get('/admin/turnos', requireAdminAuth, asyncHandler(adminController.paginaTurnos));
+router.get(
+  '/admin/configuracion',
+  requireAdminAuth,
+  asyncHandler(adminController.paginaConfiguracion)
+);
 
 // API
 router.get('/api/admin/qr/today', requireAdminAuth, asyncHandler(adminController.qrDeHoy));

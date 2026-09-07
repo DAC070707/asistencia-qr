@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Configuración — DANA</title>
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'configuracion' }) %>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Ajustes</p>
+          <h1>Configuración</h1>
+          <p class="topbar-sub">Logo de tu empresa y reglas de puntualidad.</p>
+        </div>
+        <div class="empresa-chip">
+          <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="10" height="18" rx="1"/><path d="M14 8h6v13h-6"/><path d="M7.5 7h1M11 7h1M7.5 11h1M11 11h1M7.5 15h1M11 15h1"/></svg></div>
+          <span><%= empresaNombre %></span>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h2>Logo de tu empresa</h2>
+          <p class="card-sub">Aparece en la parte superior de las páginas de marcación. PNG, JPG, WEBP o SVG, máximo 2MB.</p>
+          <div class="fila-acciones">
+            <img id="logo-preview" src="<%= logoEmpresaUrl %>" alt="" style="height:40px; max-width:160px; object-fit:contain; border-radius:8px;" onerror="this.style.display='none'" />
+            <input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+            <button id="logo-btn" class="secundario">Subir logo</button>
+          </div>
+          <div id="logo-error"></div>
+        </div>
+
+        <div class="card">
+          <h2>Tolerancia de entrada</h2>
+          <p class="card-sub">Minutos de tolerancia antes de que una entrada cuente como "Tarde". La salida usa una tolerancia fija de 5 min.</p>
+          <div class="fila-acciones">
+            <label style="margin:0;">Tolerancia de entrada (min)
+              <input type="number" id="tolerancia-input" min="0" max="120" step="1" style="max-width:100px; margin:0;" />
+            </label>
+            <button id="tolerancia-btn" class="secundario">Guardar</button>
+          </div>
+          <div id="tolerancia-error"></div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/admin-configuracion.js"></script>
+</body>
+</html>

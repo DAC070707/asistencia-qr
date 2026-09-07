@@ -20,6 +20,11 @@ async function workerDeEmpresa(workerId, empresaId) {
   return db('workers').where({ id: workerId, empresa_id: empresaId }).first();
 }
 
+async function nombreDeEmpresa(empresaId) {
+  const empresa = await db('empresas').where({ id: empresaId }).first('nombre');
+  return empresa?.nombre || '';
+}
+
 async function subirLogo(req, res) {
   if (!req.file) {
     return res.status(400).json({ error: 'No se recibió ningún archivo' });
@@ -64,17 +69,26 @@ function paginaLogin(req, res) {
   res.render('admin/login');
 }
 
-function paginaDashboard(req, res) {
-  res.render('admin/dashboard', { admin: req.admin, logoEmpresaUrl: `/logo/${req.admin.empresaId}` });
+async function paginaDashboard(req, res) {
+  res.render('admin/dashboard', {
+    admin: req.admin,
+    empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
+    logoEmpresaUrl: `/logo/${req.admin.empresaId}`
+  });
 }
 
-function paginaHistorial(req, res) {
-  res.render('admin/historial', { admin: req.admin, logoEmpresaUrl: `/logo/${req.admin.empresaId}` });
+async function paginaHistorial(req, res) {
+  res.render('admin/historial', {
+    admin: req.admin,
+    empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
+    logoEmpresaUrl: `/logo/${req.admin.empresaId}`
+  });
 }
 
-function paginaTrabajadores(req, res) {
+async function paginaTrabajadores(req, res) {
   res.render('admin/trabajadores', {
     admin: req.admin,
+    empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
     logoEmpresaUrl: `/logo/${req.admin.empresaId}`
   });
 }
@@ -86,13 +100,26 @@ async function paginaHorarioTrabajador(req, res) {
   }
   res.render('admin/horario-trabajador', {
     admin: req.admin,
+    empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
     logoEmpresaUrl: `/logo/${req.admin.empresaId}`,
     worker
   });
 }
 
-function paginaTurnos(req, res) {
-  res.render('admin/turnos', { admin: req.admin, logoEmpresaUrl: `/logo/${req.admin.empresaId}` });
+async function paginaTurnos(req, res) {
+  res.render('admin/turnos', {
+    admin: req.admin,
+    empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
+    logoEmpresaUrl: `/logo/${req.admin.empresaId}`
+  });
+}
+
+async function paginaConfiguracion(req, res) {
+  res.render('admin/configuracion', {
+    admin: req.admin,
+    empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
+    logoEmpresaUrl: `/logo/${req.admin.empresaId}`
+  });
 }
 
 async function qrDeHoy(req, res) {
@@ -474,6 +501,7 @@ module.exports = {
   paginaTrabajadores,
   paginaHorarioTrabajador,
   paginaTurnos,
+  paginaConfiguracion,
   qrDeHoy,
   qrDeHoyImagen,
   regenerarQr,
