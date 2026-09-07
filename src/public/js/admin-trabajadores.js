@@ -5,6 +5,8 @@ function escapeHtml(str) {
 }
 
 const tbody = document.getElementById('tabla-trabajadores');
+const buscarInput = document.getElementById('buscar-input');
+let workersCache = [];
 
 function etiquetaHorario(tipoHorario) {
   if (tipoHorario === 'semanal') return 'Semanal';
@@ -12,16 +14,19 @@ function etiquetaHorario(tipoHorario) {
   return 'Sin asignar';
 }
 
-async function cargarWorkers() {
-  const resp = await fetch('/api/admin/workers');
-  if (!resp.ok) {
-    tbody.innerHTML = '<tr><td colspan="6">Error al cargar</td></tr>';
-    return;
-  }
-  const workers = await resp.json();
+function iniciales(nombre) {
+  return nombre
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
+}
 
+function renderWorkers(workers) {
   if (workers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6">Aún no hay trabajadores registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">Sin resultados</td></tr>';
     return;
   }
 
@@ -29,7 +34,7 @@ async function cargarWorkers() {
     .map(
       (w) => `
         <tr data-id="${w.id}">
-          <td>${escapeHtml(w.nombre)}</td>
+          <td><div class="name-cell"><div class="name-avatar">${iniciales(w.nombre)}</div>${escapeHtml(w.nombre)}</div></td>
           <td>${escapeHtml(w.dni)}</td>
           <td>${etiquetaHorario(w.tipo_horario)} — <a href="/admin/trabajadores/${w.id}/horario">Configurar</a></td>
           <td><input type="checkbox" class="input-activo" ${w.activo ? 'checked' : ''} /></td>
@@ -39,6 +44,28 @@ async function cargarWorkers() {
     )
     .join('');
 }
+
+async function cargarWorkers() {
+  const resp = await fetch('/api/admin/workers');
+  if (!resp.ok) {
+    tbody.innerHTML = '<tr><td colspan="6">Error al cargar</td></tr>';
+    return;
+  }
+  workersCache = await resp.json();
+
+  if (workersCache.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6">Aún no hay trabajadores registrados</td></tr>';
+    return;
+  }
+
+  renderWorkers(workersCache);
+}
+
+buscarInput.addEventListener('input', () => {
+  const q = buscarInput.value.trim().toLowerCase();
+  if (!q) return renderWorkers(workersCache);
+  renderWorkers(workersCache.filter((w) => w.nombre.toLowerCase().includes(q) || w.dni.includes(q)));
+});
 
 tbody.addEventListener('click', async (e) => {
   if (!e.target.classList.contains('guardar-btn')) return;

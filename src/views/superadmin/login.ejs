@@ -7,12 +7,11 @@
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <%- include('../partials/header') %>
-
-  <div class="contenedor">
-    <div class="tarjeta" style="margin-top: 40px;">
-      <h1>Panel de súper-admin</h1>
-      <p class="subtitulo">Acceso exclusivo para administrar todas las empresas</p>
+  <div class="auth-shell">
+    <div class="auth-card">
+      <img src="/dana.png" alt="Dana" class="auth-logo" />
+      <h1 style="text-align:center;">Panel de súper-admin</h1>
+      <p class="subtitulo" style="text-align:center;">Acceso exclusivo para administrar todas las empresas</p>
       <div id="error-box"></div>
       <form id="login-form">
         <label for="email">Email</label>
@@ -23,8 +22,6 @@
       </form>
     </div>
   </div>
-
-  <%- include('../partials/footer') %>
 
   <script>
     const form = document.getElementById('login-form');

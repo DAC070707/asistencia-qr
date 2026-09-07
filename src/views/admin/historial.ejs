@@ -7,54 +7,54 @@
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <%- include('../partials/header', {
-    navHome: '/admin',
-    navLinks: [
-      { href: '/admin', texto: 'Hoy' },
-      { href: '/admin/historial', texto: 'Historial' },
-      { href: '/admin/trabajadores', texto: 'Trabajadores' },
-      { href: '/admin/turnos', texto: 'Turnos' },
-      { href: '#', texto: 'Salir', id: 'logout-link' }
-    ],
-    logoEmpresaUrl: logoEmpresaUrl
-  }) %>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'historial' }) %>
 
-  <div class="contenedor-ancho">
-    <div class="tarjeta">
-      <h2>Historial</h2>
-      <p class="subtitulo">Click en una hora para corregirla. Las horas extra requieren tu aprobación para contar como válidas.</p>
-      <div class="fila-acciones">
-        <label style="margin:0;">Desde
-          <input type="date" id="desde-input" style="max-width:170px;" />
-        </label>
-        <label style="margin:0;">Hasta
-          <input type="date" id="hasta-input" style="max-width:170px;" />
-        </label>
-        <label style="margin:0; flex:1; min-width:180px;">Trabajador
-          <select id="worker-input" style="width:100%; padding:6px 8px; border:1.5px solid var(--line); border-radius:2px; background:var(--paper-light); font-family:var(--font-body);">
-            <option value="">Todos</option>
-          </select>
-        </label>
-        <button id="buscar-btn">Buscar</button>
-        <a id="export-link" class="boton secundario" href="#">Exportar CSV</a>
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Registros</p>
+          <h1>Historial</h1>
+          <p class="topbar-sub">Click en una hora para corregirla. Las horas extra requieren tu aprobación.</p>
+        </div>
+        <div class="avatar-chip">
+          <div class="avatar"><%= admin.email.slice(0, 2).toUpperCase() %></div>
+          <span><%= admin.email %></span>
+        </div>
       </div>
-      <div style="overflow-x:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Fecha</th><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th>
-              <th>Pendientes</th><th>Extra 25%</th><th>Extra 35%</th><th>Horas extra</th><th></th>
-            </tr>
-          </thead>
-          <tbody id="tabla-historial">
-            <tr><td colspan="10">Elige una fecha</td></tr>
-          </tbody>
-        </table>
+
+      <div class="card">
+        <div class="fila-acciones">
+          <label style="margin:0;">Desde
+            <input type="date" id="desde-input" style="max-width:170px; margin:0;" />
+          </label>
+          <label style="margin:0;">Hasta
+            <input type="date" id="hasta-input" style="max-width:170px; margin:0;" />
+          </label>
+          <label style="margin:0; flex:1; min-width:180px;">Trabajador
+            <select id="worker-input" style="width:100%; margin:0;">
+              <option value="">Todos</option>
+            </select>
+          </label>
+          <button id="buscar-btn">Buscar</button>
+          <a id="export-link" class="boton secundario" href="#">Exportar CSV</a>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>Fecha</th><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th>
+                <th>Pendientes</th><th>Extra 25%</th><th>Extra 35%</th><th>Horas extra</th><th></th>
+              </tr>
+            </thead>
+            <tbody id="tabla-historial">
+              <tr><td colspan="10">Elige una fecha</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+    </main>
   </div>
-
-  <%- include('../partials/footer') %>
 
   <script src="/js/admin-historial.js"></script>
 </body>

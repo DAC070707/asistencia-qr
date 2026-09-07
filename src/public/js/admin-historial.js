@@ -45,6 +45,16 @@ function badgeEstado(estado) {
   return `<span class="badge badge-${estado}">${textos[estado] || estado}</span>`;
 }
 
+function iniciales(nombre) {
+  return nombre
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
+}
+
 function badgeMarcacion(estado, minutos) {
   if (!estado) return '';
   const textos = {
@@ -90,7 +100,7 @@ function filaHtml(r) {
   return `
     <tr data-id="${r.id}" data-entrada="${r.creado_en}" data-salida="${r.hora_salida || ''}">
       <td>${formatearFecha(r.fecha)}</td>
-      <td>${escapeHtml(r.nombre)}</td>
+      <td><div class="name-cell"><div class="name-avatar">${iniciales(r.nombre)}</div>${escapeHtml(r.nombre)}</div></td>
       <td>${escapeHtml(r.dni)}</td>
       <td class="celda-entrada">${formatearHora(r.creado_en)}${badgeMarcacion(r.entrada_estado, r.entrada_minutos)}</td>
       <td class="celda-salida">${r.hora_salida ? formatearHora(r.hora_salida) : '—'}${badgeMarcacion(r.salida_estado, r.salida_minutos)}</td>

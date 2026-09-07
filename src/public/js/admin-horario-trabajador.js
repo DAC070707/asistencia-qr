@@ -62,7 +62,7 @@ function opcionesPlantillas(seleccionada) {
 function filaPasoHtml(plantillaId) {
   return `
     <div class="fila-acciones" style="margin-bottom:0;">
-      <select class="input-paso-plantilla" style="flex:1; padding:6px 8px; border:1.5px solid var(--line); border-radius:2px; background:var(--paper-light); font-family:var(--font-body);">
+      <select class="input-paso-plantilla" style="flex:1; margin:0;">
         ${opcionesPlantillas(plantillaId)}
       </select>
       <button type="button" class="boton-mini secundario quitar-paso-btn">Quitar</button>

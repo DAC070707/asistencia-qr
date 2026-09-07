@@ -23,13 +23,23 @@ async function cargarQr() {
   document.getElementById('qr-img').src = '/api/admin/qr/today.png?t=' + Date.now();
 }
 
+function iniciales(nombre) {
+  return nombre
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
+}
+
 async function cargarAsistenciaHoy() {
   const resp = await fetch('/api/admin/attendance/today');
   if (!resp.ok) return;
   const registros = await resp.json();
 
   const tbody = document.getElementById('tabla-hoy');
-  document.getElementById('contador-hoy').textContent = `(${registros.length})`;
+  document.getElementById('contador-hoy').textContent = `${registros.length} registro${registros.length === 1 ? '' : 's'}`;
 
   if (registros.length === 0) {
     tbody.innerHTML = '<tr><td colspan="4">Aún nadie ha marcado asistencia</td></tr>';
@@ -39,9 +49,37 @@ async function cargarAsistenciaHoy() {
   tbody.innerHTML = registros
     .map(
       (r) =>
-        `<tr><td>${escapeHtml(r.nombre)}</td><td>${escapeHtml(r.dni)}</td><td>${formatearHora(r.creado_en)}</td><td>${r.hora_salida ? formatearHora(r.hora_salida) : '—'}</td></tr>`
+        `<tr><td><div class="name-cell"><div class="name-avatar">${iniciales(r.nombre)}</div>${escapeHtml(r.nombre)}</div></td><td>${escapeHtml(r.dni)}</td><td>${formatearHora(r.creado_en)}</td><td>${r.hora_salida ? formatearHora(r.hora_salida) : '—'}</td></tr>`
     )
     .join('');
+}
+
+function saludoSegunHora(hora) {
+  if (hora < 12) return 'Buenos días';
+  if (hora < 19) return 'Buenas tardes';
+  return 'Buenas noches';
+}
+
+function actualizarSaludoYFecha() {
+  const ahora = new Date();
+  document.getElementById('saludo').textContent = `${saludoSegunHora(ahora.getHours())}`;
+  document.getElementById('fecha-larga').textContent = ahora.toLocaleDateString('es-PE', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long'
+  });
+}
+
+function actualizarReloj() {
+  const ahora = new Date();
+  const h = ahora.getHours() % 12;
+  const m = ahora.getMinutes();
+  const s = ahora.getSeconds();
+  document.getElementById('hand-hour').style.transform = `rotate(${h * 30 + m * 0.5}deg)`;
+  document.getElementById('hand-minute').style.transform = `rotate(${m * 6}deg)`;
+  document.getElementById('hand-second').style.transform = `rotate(${s * 6}deg)`;
+  document.getElementById('clock-digital').textContent = ahora.toLocaleTimeString('es-PE', { hour12: false });
+  document.getElementById('clock-date').textContent = ahora.toLocaleDateString('es-PE', { day: '2-digit', month: 'short' });
 }
 
 document.getElementById('regenerar-btn').addEventListener('click', async () => {
@@ -137,4 +175,7 @@ document.getElementById('tolerancia-btn').addEventListener('click', async () => 
 cargarQr();
 cargarAsistenciaHoy();
 cargarConfiguracion();
+actualizarSaludoYFecha();
+actualizarReloj();
 setInterval(cargarAsistenciaHoy, POLL_MS);
+setInterval(actualizarReloj, 1000);

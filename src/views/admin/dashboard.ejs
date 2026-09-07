@@ -7,69 +7,93 @@
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <%- include('../partials/header', {
-    navHome: '/admin',
-    navLinks: [
-      { href: '/admin', texto: 'Hoy' },
-      { href: '/admin/historial', texto: 'Historial' },
-      { href: '/admin/trabajadores', texto: 'Trabajadores' },
-      { href: '/admin/turnos', texto: 'Turnos' },
-      { href: '#', texto: 'Salir', id: 'logout-link' }
-    ],
-    logoEmpresaUrl: logoEmpresaUrl
-  }) %>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'hoy' }) %>
 
-  <div class="contenedor-ancho">
-    <div class="tarjeta" style="text-align:center;">
-      <h2>Código de hoy (<span id="fecha-hoy">—</span>)</h2>
-      <div class="qr-marco">
-        <div class="qr-marco-etiqueta">Registro de asistencia</div>
-        <img id="qr-img" class="qr-imagen" src="/api/admin/qr/today.png" alt="Codigo QR del dia" />
-        <div class="qr-marco-sello"><img src="/dana.png" alt="Dana" /></div>
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Panel de control</p>
+          <h1 id="saludo">Hola</h1>
+          <p class="topbar-sub">Hoy es <span id="fecha-larga">—</span></p>
+        </div>
+        <div class="topbar-right">
+          <div class="clock-widget">
+            <div class="clock-face">
+              <div class="clock-hand hour" id="hand-hour"></div>
+              <div class="clock-hand minute" id="hand-minute"></div>
+              <div class="clock-hand second" id="hand-second"></div>
+              <div class="clock-dot"></div>
+            </div>
+            <div>
+              <span class="clock-digital" id="clock-digital">--:--:--</span>
+              <span class="clock-date" id="clock-date">—</span>
+            </div>
+          </div>
+          <div class="avatar-chip">
+            <div class="avatar"><%= admin.email.slice(0, 2).toUpperCase() %></div>
+            <span><%= admin.email %></span>
+          </div>
+        </div>
       </div>
-      <div class="token-url" id="url-checkin">—</div>
-      <div class="fila-acciones" style="justify-content:center;">
-        <button id="regenerar-btn" class="secundario">Invalidar y generar nuevo código</button>
-      </div>
-    </div>
 
-    <div class="tarjeta">
-      <h2>Logo de tu empresa</h2>
-      <p class="subtitulo">Aparece a la derecha del logo de DANA en la parte superior del panel. Formatos: PNG, JPG, WEBP o SVG, máximo 2MB.</p>
-      <div class="fila-acciones">
-        <img id="logo-preview" src="<%= logoEmpresaUrl %>" alt="" style="height:40px; max-width:160px; object-fit:contain;" onerror="this.style.display='none'" />
-        <input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
-        <button id="logo-btn" class="secundario">Subir logo</button>
-      </div>
-      <div id="logo-error"></div>
-    </div>
+      <div class="grid-2">
+        <div class="card qr-card">
+          <div class="pill pill-active">Código activo</div>
+          <h2 style="margin-top:12px;">Código de hoy (<span id="fecha-hoy">—</span>)</h2>
+          <p class="card-sub">Los trabajadores escanean este QR para marcar su asistencia</p>
+          <div class="qr-frame">
+            <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+            <img id="qr-img" class="qr-image" src="/api/admin/qr/today.png" alt="Codigo QR del dia" />
+          </div>
+          <div class="token-url" id="url-checkin">—</div>
+          <button id="regenerar-btn" class="secundario">Invalidar y generar nuevo código</button>
+        </div>
 
-    <div class="tarjeta">
-      <h2>Configuración</h2>
-      <p class="subtitulo">Minutos de tolerancia antes de que una entrada cuente como "Tarde". La salida usa una tolerancia fija de 5 min.</p>
-      <div class="fila-acciones">
-        <label style="margin:0;">Tolerancia de entrada (min)
-          <input type="number" id="tolerancia-input" min="0" max="120" step="1" style="max-width:100px;" />
-        </label>
-        <button id="tolerancia-btn" class="secundario">Guardar</button>
-      </div>
-      <div id="tolerancia-error"></div>
-    </div>
+        <div>
+          <div class="card">
+            <h2>Logo de tu empresa</h2>
+            <p class="card-sub">Aparece en la parte superior de las páginas de marcación. PNG, JPG, WEBP o SVG, máximo 2MB.</p>
+            <div class="fila-acciones">
+              <img id="logo-preview" src="<%= logoEmpresaUrl %>" alt="" style="height:40px; max-width:160px; object-fit:contain; border-radius:8px;" onerror="this.style.display='none'" />
+              <input type="file" id="logo-input" accept="image/png,image/jpeg,image/webp,image/svg+xml" />
+              <button id="logo-btn" class="secundario">Subir logo</button>
+            </div>
+            <div id="logo-error"></div>
+          </div>
 
-    <div class="tarjeta">
-      <h2>Asistencia de hoy <span id="contador-hoy" style="color:var(--muted); font-family:var(--font-mono); text-transform:none; letter-spacing:0;"></span></h2>
-      <table>
-        <thead>
-          <tr><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th></tr>
-        </thead>
-        <tbody id="tabla-hoy">
-          <tr><td colspan="4">Cargando...</td></tr>
-        </tbody>
-      </table>
-    </div>
+          <div class="card">
+            <h2>Configuración</h2>
+            <p class="card-sub">Minutos de tolerancia antes de que una entrada cuente como "Tarde". La salida usa una tolerancia fija de 5 min.</p>
+            <div class="fila-acciones">
+              <label style="margin:0;">Tolerancia de entrada (min)
+                <input type="number" id="tolerancia-input" min="0" max="120" step="1" style="max-width:100px; margin:0;" />
+              </label>
+              <button id="tolerancia-btn" class="secundario">Guardar</button>
+            </div>
+            <div id="tolerancia-error"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h2>Asistencia de hoy</h2>
+          <span class="pill" style="background:var(--blue-light); color:var(--blue-dark);" id="contador-hoy">0 registros</span>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th></tr>
+            </thead>
+            <tbody id="tabla-hoy">
+              <tr><td colspan="4">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
   </div>
-
-  <%- include('../partials/footer') %>
 
   <script src="/js/admin-dashboard.js"></script>
 </body>

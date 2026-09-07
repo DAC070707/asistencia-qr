@@ -7,51 +7,52 @@
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <%- include('../partials/header', {
-    navHome: '/admin',
-    navLinks: [
-      { href: '/admin', texto: 'Hoy' },
-      { href: '/admin/historial', texto: 'Historial' },
-      { href: '/admin/trabajadores', texto: 'Trabajadores' },
-      { href: '/admin/turnos', texto: 'Turnos' },
-      { href: '#', texto: 'Salir', id: 'logout-link' }
-    ],
-    logoEmpresaUrl: logoEmpresaUrl
-  }) %>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'turnos' }) %>
 
-  <div class="contenedor-ancho">
-    <div class="tarjeta">
-      <h2>Nuevo turno</h2>
-      <p class="subtitulo">Plantillas reutilizables para armar rotaciones (ej. Turno Mañana, Turno Noche, Descanso). Se usan en "Horario" de cada trabajador.</p>
-      <div id="crear-error"></div>
-      <form id="crear-form" class="fila-acciones">
-        <input type="text" id="nombre-input" placeholder="Nombre (ej. Turno Mañana)" style="max-width:220px; margin:0;" required />
-        <label style="margin:0;">Entrada <input type="time" id="entrada-input" /></label>
-        <label style="margin:0;">Salida <input type="time" id="salida-input" /></label>
-        <label style="margin:0; font-family:var(--font-body); text-transform:none; letter-spacing:0;">
-          <input type="checkbox" id="cruza-input" /> Cruza medianoche
-        </label>
-        <label style="margin:0; font-family:var(--font-body); text-transform:none; letter-spacing:0;">
-          <input type="checkbox" id="descanso-input" /> Es descanso
-        </label>
-        <button type="submit">Agregar</button>
-      </form>
-    </div>
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Plantillas</p>
+          <h1>Turnos</h1>
+          <p class="topbar-sub">Plantillas reutilizables para armar rotaciones (ej. Turno Mañana, Turno Noche, Descanso).</p>
+        </div>
+        <div class="avatar-chip">
+          <div class="avatar"><%= admin.email.slice(0, 2).toUpperCase() %></div>
+          <span><%= admin.email %></span>
+        </div>
+      </div>
 
-    <div class="tarjeta">
-      <h2>Turnos</h2>
-      <table>
-        <thead>
-          <tr><th>Nombre</th><th>Entrada</th><th>Salida</th><th>Cruza medianoche</th><th>Descanso</th><th></th></tr>
-        </thead>
-        <tbody id="tabla-turnos">
-          <tr><td colspan="6">Cargando...</td></tr>
-        </tbody>
-      </table>
-    </div>
+      <div class="card">
+        <h2>Nuevo turno</h2>
+        <div id="crear-error"></div>
+        <form id="crear-form" class="fila-acciones">
+          <input type="text" id="nombre-input" placeholder="Nombre (ej. Turno Mañana)" style="max-width:220px; margin:0;" required />
+          <label style="margin:0;">Entrada <input type="time" id="entrada-input" style="margin:0;" /></label>
+          <label style="margin:0;">Salida <input type="time" id="salida-input" style="margin:0;" /></label>
+          <label style="margin:0; font-weight:500; text-transform:none;">
+            <input type="checkbox" id="cruza-input" /> Cruza medianoche
+          </label>
+          <label style="margin:0; font-weight:500; text-transform:none;">
+            <input type="checkbox" id="descanso-input" /> Es descanso
+          </label>
+          <button type="submit">Agregar</button>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Turnos</h2>
+        <table>
+          <thead>
+            <tr><th>Nombre</th><th>Entrada</th><th>Salida</th><th>Cruza medianoche</th><th>Descanso</th><th></th></tr>
+          </thead>
+          <tbody id="tabla-turnos">
+            <tr><td colspan="6">Cargando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
   </div>
-
-  <%- include('../partials/footer') %>
 
   <script src="/js/admin-turnos.js"></script>
 </body>

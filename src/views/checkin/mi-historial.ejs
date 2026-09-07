@@ -13,23 +13,23 @@
     <div class="tarjeta" style="margin-top: 24px;">
       <h1>Hola, <%= nombre %></h1>
       <p class="subtitulo">Horas extra aprobadas del <%= desde %> al <%= hasta %></p>
-      <div style="display:flex; gap:12px; margin-bottom:16px;">
-        <div style="flex:1; text-align:center; background:var(--paper); border:1.5px solid var(--line); border-radius:2px; padding:12px;">
-          <div style="font-family:var(--font-mono); font-size:1.4rem; font-weight:600;"><%= totalAprobado25 %></div>
-          <div style="font-family:var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);">horas al 25%</div>
+      <div class="stat-row" style="margin-bottom:16px;">
+        <div class="stat">
+          <div class="stat-num"><%= totalAprobado25 %></div>
+          <div class="stat-label">horas al 25%</div>
         </div>
-        <div style="flex:1; text-align:center; background:var(--paper); border:1.5px solid var(--line); border-radius:2px; padding:12px;">
-          <div style="font-family:var(--font-mono); font-size:1.4rem; font-weight:600;"><%= totalAprobado35 %></div>
-          <div style="font-family:var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);">horas al 35%</div>
+        <div class="stat">
+          <div class="stat-num"><%= totalAprobado35 %></div>
+          <div class="stat-label">horas al 35%</div>
         </div>
       </div>
 
       <form method="GET" action="/mi-historial" style="display:flex; gap:8px; flex-wrap:wrap; align-items:end;">
         <label style="margin:0; flex:1; min-width:120px;">Desde
-          <input type="date" name="desde" value="<%= desde %>" style="width:100%;" />
+          <input type="date" name="desde" value="<%= desde %>" style="width:100%; margin:0;" />
         </label>
         <label style="margin:0; flex:1; min-width:120px;">Hasta
-          <input type="date" name="hasta" value="<%= hasta %>" style="width:100%;" />
+          <input type="date" name="hasta" value="<%= hasta %>" style="width:100%; margin:0;" />
         </label>
         <button type="submit">Buscar</button>
       </form>
@@ -37,14 +37,14 @@
 
     <div class="tarjeta">
       <p class="subtitulo">Tardanzas del <%= desde %> al <%= hasta %></p>
-      <div style="display:flex; gap:12px;">
-        <div style="flex:1; text-align:center; background:var(--paper); border:1.5px solid var(--line); border-radius:2px; padding:12px;">
-          <div style="font-family:var(--font-mono); font-size:1.4rem; font-weight:600;"><%= diasTarde %></div>
-          <div style="font-family:var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);">días tarde</div>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="stat-num"><%= diasTarde %></div>
+          <div class="stat-label">días tarde</div>
         </div>
-        <div style="flex:1; text-align:center; background:var(--paper); border:1.5px solid var(--line); border-radius:2px; padding:12px;">
-          <div style="font-family:var(--font-mono); font-size:1.4rem; font-weight:600;"><%= minutosAcumulados %></div>
-          <div style="font-family:var(--font-mono); font-size:0.72rem; text-transform:uppercase; letter-spacing:.04em; color:var(--muted);">minutos acumulados</div>
+        <div class="stat">
+          <div class="stat-num"><%= minutosAcumulados %></div>
+          <div class="stat-label">minutos acumulados</div>
         </div>
       </div>
     </div>
@@ -70,9 +70,9 @@
                   <td><%= r.horasExtra25 %></td>
                   <td><%= r.horasExtra35 %></td>
                   <td>
-                    <% if (r.estado === 'aprobado') { %>✅ Aprobado
-                    <% } else if (r.estado === 'rechazado') { %>❌ Rechazado
-                    <% } else { %>⏳ Pendiente
+                    <% if (r.estado === 'aprobado') { %><span class="badge badge-aprobado">Aprobado</span>
+                    <% } else if (r.estado === 'rechazado') { %><span class="badge badge-rechazado">Rechazado</span>
+                    <% } else { %><span class="badge badge-pendiente">Pendiente</span>
                     <% } %>
                   </td>
                 </tr>
