@@ -10,12 +10,13 @@
   <%- include('../partials/header', { logoEmpresaUrl: logoEmpresaUrl }) %>
 
   <div class="contenedor">
-    <div class="tarjeta" style="margin-top: 24px;">
+    <div class="tarjeta" style="margin-top: 24px;" data-geo-activa="<%= geolocalizacionActiva ? '1' : '0' %>">
       <h1>Hola, <%= nombre %></h1>
 
       <% if (error) { %>
         <div class="error"><%= error %></div>
       <% } %>
+      <div class="error" id="geo-error" hidden></div>
 
       <% if (horaSalida) { %>
         <p class="subtitulo exito">Jornada completa hoy.<br>Entrada: <strong><%= horaEntrada %></strong> — Salida: <strong><%= horaSalida %></strong></p>
@@ -25,14 +26,20 @@
         <p class="subtitulo">Aún no has marcado nada hoy.</p>
       <% } %>
 
+      <% if (geolocalizacionActiva) { %>
+        <p class="subtitulo" style="background:var(--blue-light); color:var(--blue-dark); padding:10px 12px; border-radius:var(--radius-sm); font-size:.82rem;">
+          📍 Para marcar tu asistencia verificaremos tu ubicación. Este dato se usa únicamente para control de asistencia.
+        </p>
+      <% } %>
+
       <div class="fila-acciones" style="flex-direction:column;">
-        <form method="POST" action="/checkin/<%= token %>/marcar" style="width:100%;">
+        <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%;">
           <input type="hidden" name="accion" value="entrada" />
           <button type="submit" style="width:100%;" <%= horaEntrada ? 'disabled' : '' %>>
             Marcar entrada
           </button>
         </form>
-        <form method="POST" action="/checkin/<%= token %>/marcar" style="width:100%; margin-top:10px;">
+        <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%; margin-top:10px;">
           <input type="hidden" name="accion" value="salida" />
           <button type="submit" class="secundario" style="width:100%;" <%= (!horaEntrada || horaSalida) ? 'disabled' : '' %>>
             Marcar salida
@@ -47,5 +54,7 @@
   </div>
 
   <%- include('../partials/footer') %>
+
+  <script src="/js/checkin-marcar.js"></script>
 </body>
 </html>

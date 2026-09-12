@@ -6,6 +6,7 @@ const db = require('../config/db');
 const { horaLima, hoyLima, primerDiaMesLima } = require('../utils/limaDate');
 const horarioService = require('../services/horario.service');
 const { clasificarEntrada, clasificarSalida } = require('../utils/overtime');
+const { calcularDistanciaMetros } = require('../utils/geo');
 
 const DEVICE_COOKIE_OPTS = {
   httpOnly: true,
@@ -43,15 +44,46 @@ async function workerDesdeCookie(req, empresaId) {
   }
 }
 
-function datosParaVistaMarcar(worker, token, empresaId, registro, error) {
+async function datosParaVistaMarcar(worker, token, empresaId, registro, error) {
+  const geo = await horarioService.obtenerConfigUbicacion(empresaId);
   return {
     token,
     nombre: worker.nombre,
     logoEmpresaUrl: `/logo/${empresaId}`,
     horaEntrada: registro ? horaLima(new Date(registro.creado_en)) : null,
     horaSalida: registro?.hora_salida ? horaLima(new Date(registro.hora_salida)) : null,
+    geolocalizacionActiva: geo.activa,
     error: error || null
   };
+}
+
+// Valida la ubicacion enviada al marcar contra la de la empresa (si tiene la
+// verificacion activa). Devuelve { ok:true, geo } con lat/lng/distancia lista
+// para persistir, o { ok:false, mensaje } sin tocar la base de datos.
+async function validarGeolocalizacion(empresaId, body) {
+  const config = await horarioService.obtenerConfigUbicacion(empresaId);
+  if (!config.activa) {
+    return { ok: true, geo: null };
+  }
+
+  const lat = Number(body.lat);
+  const lng = Number(body.lng);
+  if (body.lat === undefined || body.lng === undefined || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return {
+      ok: false,
+      mensaje: 'No pudimos verificar tu ubicación. Activa el permiso de ubicación en tu navegador e intenta de nuevo.'
+    };
+  }
+
+  const distanciaMetros = calcularDistanciaMetros(config.lat, config.lng, lat, lng);
+  if (distanciaMetros > config.radioMetros) {
+    return {
+      ok: false,
+      mensaje: `Estás fuera del rango permitido para marcar asistencia (a ${Math.round(distanciaMetros)}m, máximo ${config.radioMetros}m).`
+    };
+  }
+
+  return { ok: true, geo: { lat, lng, distanciaMetros: Math.round(distanciaMetros * 100) / 100 } };
 }
 
 async function mostrarCheckin(req, res) {
@@ -69,7 +101,7 @@ async function mostrarCheckin(req, res) {
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
   return res.render(
     'checkin/marcar',
-    datosParaVistaMarcar(worker, token, codigo.empresa_id, registro)
+    await datosParaVistaMarcar(worker, token, codigo.empresa_id, registro)
   );
 }
 
@@ -113,7 +145,7 @@ async function identificar(req, res) {
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
   return res.render(
     'checkin/marcar',
-    datosParaVistaMarcar(worker, token, codigo.empresa_id, registro)
+    await datosParaVistaMarcar(worker, token, codigo.empresa_id, registro)
   );
 }
 
@@ -131,11 +163,21 @@ async function marcar(req, res) {
 
   const accion = req.body.accion;
 
+  const geoResultado = await validarGeolocalizacion(codigo.empresa_id, req.body);
+  if (!geoResultado.ok) {
+    const registroActual = await attendanceService.buscarAsistenciaDeHoy(worker.id);
+    return res.render(
+      'checkin/marcar',
+      await datosParaVistaMarcar(worker, token, codigo.empresa_id, registroActual, geoResultado.mensaje)
+    );
+  }
+
   if (accion === 'entrada') {
     const { registro, yaExistia } = await attendanceService.marcarEntrada({
       workerId: worker.id,
       dailyCodeId: codigo.id,
-      empresaId: codigo.empresa_id
+      empresaId: codigo.empresa_id,
+      geo: geoResultado.geo
     });
     const horario = await horarioService.resolverHorarioDelDia(worker.id, registro.fecha);
     const tolerancia = await horarioService.obtenerToleranciaEmpresa(codigo.empresa_id);
@@ -156,12 +198,12 @@ async function marcar(req, res) {
   }
 
   if (accion === 'salida') {
-    const resultado = await attendanceService.marcarSalida({ workerId: worker.id });
+    const resultado = await attendanceService.marcarSalida({ workerId: worker.id, geo: geoResultado.geo });
 
     if (resultado.error === 'sin_entrada') {
       return res.render(
         'checkin/marcar',
-        datosParaVistaMarcar(worker, token, codigo.empresa_id, null, 'Primero marca tu entrada de hoy.')
+        await datosParaVistaMarcar(worker, token, codigo.empresa_id, null, 'Primero marca tu entrada de hoy.')
       );
     }
 

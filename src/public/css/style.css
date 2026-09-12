@@ -542,6 +542,7 @@ tbody tr:hover { background: var(--bg); }
 /* ---------- Toggle switches ---------- */
 input[type="checkbox"].toggle,
 .tarjeta input[type="checkbox"],
+.card input[type="checkbox"],
 table input[type="checkbox"] {
   appearance: none;
   -webkit-appearance: none;
@@ -558,6 +559,7 @@ table input[type="checkbox"] {
 }
 input[type="checkbox"].toggle::after,
 .tarjeta input[type="checkbox"]::after,
+.card input[type="checkbox"]::after,
 table input[type="checkbox"]::after {
   content: '';
   position: absolute;
@@ -572,11 +574,13 @@ table input[type="checkbox"]::after {
 }
 input[type="checkbox"].toggle:checked,
 .tarjeta input[type="checkbox"]:checked,
+.card input[type="checkbox"]:checked,
 table input[type="checkbox"]:checked {
   background: var(--green);
 }
 input[type="checkbox"].toggle:checked::after,
 .tarjeta input[type="checkbox"]:checked::after,
+.card input[type="checkbox"]:checked::after,
 table input[type="checkbox"]:checked::after {
   left: 19px;
 }

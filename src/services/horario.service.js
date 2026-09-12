@@ -262,6 +262,18 @@ async function obtenerToleranciaEmpresa(empresaId) {
   return empresa ? empresa.tolerancia_entrada_minutos : 5;
 }
 
+// Config de geolocalizacion de la empresa, usada por checkin.controller para
+// decidir si exige y valida lat/lng al marcar.
+async function obtenerConfigUbicacion(empresaId) {
+  const empresa = await db('empresas').where({ id: empresaId }).first();
+  return {
+    activa: empresa?.geolocalizacion_activa || false,
+    lat: empresa?.lat != null ? Number(empresa.lat) : null,
+    lng: empresa?.lng != null ? Number(empresa.lng) : null,
+    radioMetros: empresa?.radio_metros ?? 50
+  };
+}
+
 // toleranciaMinutos: tolerancia de ENTRADA de la empresa (resolver una sola
 // vez por request con obtenerToleranciaEmpresa, no por fila).
 async function decorarConHorario(registros, toleranciaMinutos) {
@@ -296,6 +308,7 @@ module.exports = {
   resolverHorarioDelDia,
   decorarConHorario,
   obtenerToleranciaEmpresa,
+  obtenerConfigUbicacion,
   obtenerHorarioDeWorker,
   guardarHorarioSemanal,
   guardarRotacion,

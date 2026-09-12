@@ -108,6 +108,7 @@ function filaHtml(r) {
       <td>${Number(r.horas_extra_25).toFixed(2)}</td>
       <td>${Number(r.horas_extra_35).toFixed(2)}</td>
       <td class="celda-estado">${tieneExtra ? badgeEstado(r.horas_extra_estado) : '—'}</td>
+      <td>${r.entrada_distancia_m === null || r.entrada_distancia_m === undefined ? '—' : `${Number(r.entrada_distancia_m).toFixed(0)} m`}</td>
       <td class="celda-acciones">
         <button type="button" class="boton-mini secundario editar-btn">Editar</button>
         ${
@@ -139,6 +140,7 @@ function filaEdicionHtml(fila) {
     <td><input type="datetime-local" class="input-salida" value="${salida}" /></td>
     <td colspan="3"></td>
     <td></td>
+    <td></td>
     <td class="celda-acciones">
       <button type="button" class="boton-mini guardar-btn">Guardar</button>
       <button type="button" class="boton-mini secundario cancelar-btn">Cancelar</button>
@@ -149,18 +151,18 @@ async function buscar() {
   if (!desdeInput.value || !hastaInput.value) return;
 
   actualizarExportLink();
-  tbody.innerHTML = '<tr><td colspan="10">Cargando...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="11">Cargando...</td></tr>';
 
   const resp = await fetch(`/api/admin/attendance?${paramsActuales().toString()}`);
   if (!resp.ok) {
     const data = await resp.json().catch(() => ({}));
-    tbody.innerHTML = `<tr><td colspan="10">${data.error || 'Error al cargar'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11">${data.error || 'Error al cargar'}</td></tr>`;
     return;
   }
   const registros = await resp.json();
 
   if (registros.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10">Sin registros para este filtro</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11">Sin registros para este filtro</td></tr>';
     return;
   }
 

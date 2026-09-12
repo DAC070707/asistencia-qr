@@ -47,6 +47,40 @@
           <div id="tolerancia-error"></div>
         </div>
       </div>
+
+      <div class="card">
+        <h2>Ubicación del negocio</h2>
+        <p class="card-sub">
+          Si la activas, el trabajador debe permitir su ubicación al marcar y estar dentro del radio permitido — evita que alguien marque desde otro lugar con una foto del QR.
+          Para guardar la ubicación, párate en el negocio y usa el botón de abajo desde tu celular o laptop.
+        </p>
+
+        <label style="margin:0 0 6px;">Dirección (referencia)
+          <input type="text" id="ubicacion-direccion" placeholder="Av. Ejemplo 123, distrito" style="margin:0;" />
+        </label>
+
+        <div class="fila-acciones">
+          <button type="button" id="ubicacion-usar-btn" class="secundario">📍 Usar mi ubicación actual</button>
+          <label style="margin:0;">Latitud
+            <input type="number" id="ubicacion-lat" step="0.0000001" style="max-width:150px; margin:0;" />
+          </label>
+          <label style="margin:0;">Longitud
+            <input type="number" id="ubicacion-lng" step="0.0000001" style="max-width:150px; margin:0;" />
+          </label>
+        </div>
+
+        <div class="fila-acciones">
+          <label style="margin:0;">Radio permitido (metros)
+            <input type="number" id="ubicacion-radio" min="10" max="500" step="1" style="max-width:100px; margin:0;" />
+          </label>
+          <label style="margin:0; font-weight:500; text-transform:none; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="ubicacion-activa" />
+            Exigir verificación de ubicación al marcar
+          </label>
+          <button id="ubicacion-btn" class="secundario">Guardar</button>
+        </div>
+        <div id="ubicacion-error"></div>
+      </div>
     </main>
   </div>
 

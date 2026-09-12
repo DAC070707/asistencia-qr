@@ -14,7 +14,8 @@ const COLUMNAS_ASISTENCIA = [
   'attendance.horas_extra_25',
   'attendance.horas_extra_35',
   'attendance.horas_extra_estado',
-  'attendance.editado_en'
+  'attendance.editado_en',
+  'attendance.entrada_distancia_m'
 ];
 
 async function buscarOCrearWorker({ dni, nombre, empresaId }) {
@@ -30,7 +31,7 @@ async function buscarAsistenciaDeHoy(workerId) {
   return db('attendance').where({ worker_id: workerId, fecha }).first();
 }
 
-async function marcarEntrada({ workerId, dailyCodeId, empresaId }) {
+async function marcarEntrada({ workerId, dailyCodeId, empresaId, geo }) {
   const fecha = hoyLima();
 
   // Ya marco entrada hoy: no duplicar, devolver el registro existente.
@@ -38,12 +39,20 @@ async function marcarEntrada({ workerId, dailyCodeId, empresaId }) {
   if (existente) return { registro: existente, yaExistia: true };
 
   const [creado] = await db('attendance')
-    .insert({ worker_id: workerId, daily_code_id: dailyCodeId, empresa_id: empresaId, fecha })
+    .insert({
+      worker_id: workerId,
+      daily_code_id: dailyCodeId,
+      empresa_id: empresaId,
+      fecha,
+      entrada_lat: geo?.lat ?? null,
+      entrada_lng: geo?.lng ?? null,
+      entrada_distancia_m: geo?.distanciaMetros ?? null
+    })
     .returning('*');
   return { registro: creado, yaExistia: false };
 }
 
-async function marcarSalida({ workerId }) {
+async function marcarSalida({ workerId, geo }) {
   const existente = await buscarAsistenciaDeHoy(workerId);
   if (!existente) {
     return { error: 'sin_entrada' };
@@ -66,7 +75,14 @@ async function marcarSalida({ workerId }) {
 
   const [actualizado] = await db('attendance')
     .where({ id: existente.id })
-    .update({ hora_salida: horaSalida, horas_extra_25: extra25, horas_extra_35: extra35 })
+    .update({
+      hora_salida: horaSalida,
+      horas_extra_25: extra25,
+      horas_extra_35: extra35,
+      salida_lat: geo?.lat ?? null,
+      salida_lng: geo?.lng ?? null,
+      salida_distancia_m: geo?.distanciaMetros ?? null
+    })
     .returning('*');
   return { registro: actualizado, yaExistia: false };
 }

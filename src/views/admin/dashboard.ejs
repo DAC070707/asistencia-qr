@@ -40,14 +40,15 @@
       <div class="qr-hero">
         <div class="card qr-card">
           <div class="pill pill-active">Código activo</div>
-          <h2 style="margin-top:12px;">Código de hoy (<span id="fecha-hoy">—</span>)</h2>
-          <p class="card-sub">Los trabajadores escanean este QR para marcar su asistencia</p>
+          <h2 style="margin-top:12px;">Código de asistencia</h2>
+          <p class="card-sub">Los trabajadores escanean este QR para marcar su asistencia. Puedes imprimirlo y pegarlo en la entrada — no cambia solo, se queda activo hasta que lo invalides.</p>
           <div class="qr-frame">
             <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
             <img id="qr-img" class="qr-image qr-image-lg" src="/api/admin/qr/today.png" alt="Codigo QR del dia" />
           </div>
           <div class="token-url" id="url-checkin">—</div>
-          <button id="regenerar-btn" class="secundario">Invalidar y generar nuevo código</button>
+          <p class="card-sub" style="margin:6px 0 0;">Generado el <span id="fecha-hoy">—</span></p>
+          <button id="regenerar-btn" class="secundario" style="margin-top:14px;">Invalidar y generar nuevo código</button>
         </div>
       </div>
 

@@ -39,19 +39,68 @@ async function subirLogo(req, res) {
 
 async function obtenerConfiguracionEmpresa(req, res) {
   const empresa = await db('empresas').where({ id: req.admin.empresaId }).first();
-  res.json({ toleranciaEntradaMinutos: empresa.tolerancia_entrada_minutos });
+  res.json({
+    toleranciaEntradaMinutos: empresa.tolerancia_entrada_minutos,
+    direccion: empresa.direccion || '',
+    lat: empresa.lat != null ? Number(empresa.lat) : null,
+    lng: empresa.lng != null ? Number(empresa.lng) : null,
+    radioMetros: empresa.radio_metros,
+    geolocalizacionActiva: empresa.geolocalizacion_activa
+  });
 }
 
+// Un unico endpoint de configuracion que acepta actualizaciones parciales:
+// el admin guarda la tolerancia y la ubicacion desde tarjetas separadas en la
+// pantalla, cada una con su propio boton, pero ambas pegan aca — solo se
+// valida/actualiza lo que venga presente en el body.
 async function guardarConfiguracionEmpresa(req, res) {
-  const { toleranciaEntradaMinutos } = req.body;
-  const minutos = Number(toleranciaEntradaMinutos);
-  if (!Number.isInteger(minutos) || minutos < 0 || minutos > 120) {
-    return res.status(400).json({ error: 'La tolerancia debe ser un entero entre 0 y 120 minutos' });
+  const { toleranciaEntradaMinutos, direccion, lat, lng, radioMetros, geolocalizacionActiva } =
+    req.body;
+  const cambios = {};
+
+  if (toleranciaEntradaMinutos !== undefined) {
+    const minutos = Number(toleranciaEntradaMinutos);
+    if (!Number.isInteger(minutos) || minutos < 0 || minutos > 120) {
+      return res.status(400).json({ error: 'La tolerancia debe ser un entero entre 0 y 120 minutos' });
+    }
+    cambios.tolerancia_entrada_minutos = minutos;
   }
-  await db('empresas')
-    .where({ id: req.admin.empresaId })
-    .update({ tolerancia_entrada_minutos: minutos });
-  res.json({ toleranciaEntradaMinutos: minutos });
+
+  if (radioMetros !== undefined || lat !== undefined || lng !== undefined || geolocalizacionActiva !== undefined) {
+    const radio = Number(radioMetros);
+    if (!Number.isInteger(radio) || radio < 10 || radio > 500) {
+      return res.status(400).json({ error: 'El radio debe ser un entero entre 10 y 500 metros' });
+    }
+
+    const latNum = lat === '' || lat === null || lat === undefined ? null : Number(lat);
+    const lngNum = lng === '' || lng === null || lng === undefined ? null : Number(lng);
+    if (
+      (latNum !== null && (!Number.isFinite(latNum) || latNum < -90 || latNum > 90)) ||
+      (lngNum !== null && (!Number.isFinite(lngNum) || lngNum < -180 || lngNum > 180))
+    ) {
+      return res.status(400).json({ error: 'Coordenadas invalidas' });
+    }
+
+    const activa = Boolean(geolocalizacionActiva);
+    if (activa && (latNum === null || lngNum === null)) {
+      return res.status(400).json({
+        error: 'Guarda una ubicacion (usa "Usar mi ubicacion actual") antes de activar la verificacion'
+      });
+    }
+
+    cambios.direccion = direccion ? String(direccion).slice(0, 500) : null;
+    cambios.lat = latNum;
+    cambios.lng = lngNum;
+    cambios.radio_metros = radio;
+    cambios.geolocalizacion_activa = activa;
+  }
+
+  if (Object.keys(cambios).length === 0) {
+    return res.status(400).json({ error: 'Nada que guardar' });
+  }
+
+  await db('empresas').where({ id: req.admin.empresaId }).update(cambios);
+  return obtenerConfiguracionEmpresa(req, res);
 }
 
 async function servirLogo(req, res) {
@@ -214,7 +263,8 @@ async function exportarCsv(req, res) {
       'Hora salida (Lima)',
       'Horas extra 25%',
       'Horas extra 35%',
-      'Estado horas extra'
+      'Estado horas extra',
+      'Distancia entrada (m)'
     ]
   ];
   for (const r of registros) {
@@ -226,7 +276,8 @@ async function exportarCsv(req, res) {
       formatoHora(r.hora_salida),
       r.horas_extra_25,
       r.horas_extra_35,
-      r.horas_extra_estado
+      r.horas_extra_estado,
+      r.entrada_distancia_m === null || r.entrada_distancia_m === undefined ? '' : r.entrada_distancia_m
     ]);
   }
 
