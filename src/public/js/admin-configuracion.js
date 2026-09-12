@@ -34,6 +34,19 @@ document.getElementById('logo-btn').addEventListener('click', async () => {
   }
 });
 
+function actualizarEstadoPill(activa) {
+  const pill = document.getElementById('ubicacion-estado-pill');
+  if (activa) {
+    pill.textContent = '● Verificación activa';
+    pill.style.background = 'var(--green-bg)';
+    pill.style.color = 'var(--green)';
+  } else {
+    pill.textContent = '○ Verificación inactiva';
+    pill.style.background = 'var(--border)';
+    pill.style.color = 'var(--muted)';
+  }
+}
+
 async function cargarConfiguracion() {
   const resp = await fetch('/api/admin/empresa/configuracion');
   if (!resp.ok) return;
@@ -44,6 +57,7 @@ async function cargarConfiguracion() {
   document.getElementById('ubicacion-lng').value = data.lng ?? '';
   document.getElementById('ubicacion-radio').value = data.radioMetros;
   document.getElementById('ubicacion-activa').checked = data.geolocalizacionActiva;
+  actualizarEstadoPill(data.geolocalizacionActiva);
 }
 
 document.getElementById('tolerancia-btn').addEventListener('click', async () => {
@@ -130,6 +144,8 @@ document.getElementById('ubicacion-btn').addEventListener('click', async () => {
       document.getElementById('ubicacion-activa').checked = !body.geolocalizacionActiva;
       return;
     }
+    const data = await resp.json();
+    actualizarEstadoPill(data.geolocalizacionActiva);
     btn.textContent = 'Guardado ✓';
     setTimeout(() => {
       btn.textContent = 'Guardar';
