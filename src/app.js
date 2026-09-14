@@ -18,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', (req, res) => res.redirect('/admin'));
+app.get('/', (req, res) => res.render('public/landing'));
 
 app.use('/api/auth', authRoutes);
 app.use(adminRoutes);

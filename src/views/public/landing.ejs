@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DANA — Control de asistencia para empresas</title>
+  <meta name="description" content="Registra entradas, salidas, tardanzas y horarios de tu equipo con un código QR. Sin equipos biométricos, sin instalaciones, sin contratos largos." />
+  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/landing.css" />
+</head>
+<body class="landing">
+
+  <header class="landing-nav">
+    <a href="/" class="landing-nav-brand"><img src="/dana.png" alt="Dana" /></a>
+    <nav class="landing-nav-links">
+      <a href="#funciones">Funciones</a>
+      <a href="#como-funciona">Cómo funciona</a>
+      <a href="#precios">Precios</a>
+      <a href="#preguntas-frecuentes">Preguntas frecuentes</a>
+    </nav>
+    <div class="landing-nav-right">
+      <a href="/admin/login" class="login-link">Iniciar sesión</a>
+      <a href="mailto:bc.diego040492@gmail.com?subject=Quiero%20probar%20DANA" class="boton" style="padding:10px 20px; border-radius:999px;">Probar DANA</a>
+    </div>
+  </header>
+
+  <!-- ===== HERO ===== -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div>
+        <span class="hero-eyebrow">Control de asistencia para empresas</span>
+        <h1>La asistencia de tu equipo, simple y bajo control.</h1>
+        <p class="hero-sub">Registra entradas, salidas, tardanzas y horarios desde un solo lugar. Sin equipos biométricos. Sin instalaciones. Tus trabajadores marcan asistencia con un código QR.</p>
+
+        <div class="hero-ctas">
+          <a href="mailto:bc.diego040492@gmail.com?subject=Quiero%20probar%20DANA" class="btn-hero btn-hero-primary">
+            Probar gratis
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          </a>
+          <a href="#como-funciona" class="btn-hero btn-hero-secondary">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M10.5 8.5v7l6-3.5-6-3.5Z" fill="currentColor" stroke="none"/></svg>
+            Ver cómo funciona
+          </a>
+        </div>
+
+        <div class="hero-checks">
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Sin equipos</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Sin contratos largos</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Empieza en minutos</span>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="laptop">
+          <div class="laptop-screen">
+            <div class="mockup-sidebar">
+              <img src="/dana.png" alt="" />
+              <div class="dot active"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+              <div class="dot"></div>
+            </div>
+            <div class="mockup-main">
+              <div class="mockup-topbar">
+                <div>
+                  <div class="greet">Buenos días</div>
+                  <div class="sub">Hoy es lunes, 14 de setiembre</div>
+                </div>
+                <div class="mockup-chip"><span class="avatar-dot"></span> AMG</div>
+              </div>
+              <div class="mockup-qr-card">
+                <span class="mockup-pill">Código activo</span>
+                <div class="mockup-qr-title">Código de asistencia</div>
+                <div class="mockup-qr-grid"></div>
+              </div>
+            </div>
+          </div>
+          <div class="laptop-base"></div>
+        </div>
+
+        <div class="floating-card fc-checkin">
+          <div class="icon-circle" style="background:var(--blue); color:#fff; font-family:var(--font-display); font-weight:800; font-size:.8rem;">JP</div>
+          <div>
+            <strong>Juan Pérez <span class="ok">✓</span></strong>
+            <span class="label">marcó entrada 08:02</span>
+          </div>
+        </div>
+
+        <div class="floating-card fc-count">
+          <div class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.8 13.2a4.6 4.6 0 0 1 5.2 4.6"/></svg></div>
+          <div><span class="num">18</span><br><span class="label">trabajadores presentes</span></div>
+        </div>
+
+        <div class="floating-card fc-late">
+          <div class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l3 2"/></svg></div>
+          <div><span class="num">2</span><br><span class="label">tardanzas hoy</span></div>
+        </div>
+
+        <div class="floating-card fc-rate">
+          <div class="icon-circle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V10M11 19V4M18 19v-7"/></svg></div>
+          <div><span class="num">94%</span><br><span class="label">asistencia hoy</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== PAIN POINTS ===== -->
+  <section class="landing-section">
+    <div class="landing-section-inner">
+      <span class="landing-eyebrow">Pensado para empresas como la tuya</span>
+      <h2 class="landing-h2">Olvídate del caos en la asistencia</h2>
+      <p class="landing-sub">Diseñado para empresas que todavía controlan asistencia con Excel, WhatsApp o cuadernos.</p>
+
+      <div class="pain-grid">
+        <div class="pain-item">
+          <div class="pain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></div>
+          <div>
+            <h3>Pierdes tiempo consolidando asistencia</h3>
+            <p>DANA registra automáticamente entradas y salidas.</p>
+          </div>
+        </div>
+        <div class="pain-item">
+          <div class="pain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3.5 20a5.5 5.5 0 0 1 11 0"/><circle cx="17.5" cy="9" r="2.6"/><path d="M15.8 13.2a4.6 4.6 0 0 1 5.2 4.6"/></svg></div>
+          <div>
+            <h3>No sabes quién llegó tarde hasta fin de mes</h3>
+            <p>Las incidencias aparecen al instante.</p>
+          </div>
+        </div>
+        <div class="pain-item">
+          <div class="pain-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12v18l-2.5-1.5L13 21l-1.5-1.5L10 21l-2.5-1.5L6 21V3Z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></div>
+          <div>
+            <h3>Preparar la planilla se vuelve un rompecabezas</h3>
+            <p>Obtienes información ordenada por trabajador, fecha y turno.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== COMO FUNCIONA ===== -->
+  <section class="landing-section steps-section" id="como-funciona">
+    <div class="landing-section-inner">
+      <span class="landing-eyebrow">Así funciona DANA</span>
+      <h2 class="landing-h2">En 3 simples pasos</h2>
+      <p class="landing-sub">De cero a controlando la asistencia de tu equipo en minutos.</p>
+
+      <div class="steps-row">
+        <div class="step-col">
+          <div class="step-head"><div class="step-num">1</div><h3>Creas tu empresa y registras a tus trabajadores</h3></div>
+          <div class="step-visual">
+            <div class="mini-list">
+              <div class="mini-list-row"><div class="av">AT</div><span class="name">Ana Torres</span><div class="bar"></div></div>
+              <div class="mini-list-row"><div class="av">CR</div><span class="name">Carlos Rojas</span><div class="bar"></div></div>
+              <div class="mini-list-row"><div class="av">ML</div><span class="name">María López</span><div class="bar"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="step-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+
+        <div class="step-col">
+          <div class="step-head"><div class="step-num">2</div><h3>Colocas el QR de asistencia</h3></div>
+          <div class="step-visual mini-qr">
+            <img src="/dana.png" alt="" />
+            <div class="mockup-qr-grid"></div>
+            <p>Escanea tu asistencia</p>
+          </div>
+        </div>
+
+        <div class="step-arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 5l7 7-7 7"/></svg></div>
+
+        <div class="step-col">
+          <div class="step-head"><div class="step-num">3</div><h3>DANA organiza toda la asistencia</h3></div>
+          <div class="step-visual">
+            <div class="mini-table-title">Hoy, 14 de setiembre</div>
+            <div class="mini-table-row"><div class="av"></div><span class="name">Juan Pérez</span><span class="time">08:02</span><span class="mini-pill ok">Presente</span></div>
+            <div class="mini-table-row"><div class="av"></div><span class="name">Ana Torres</span><span class="time">08:15</span><span class="mini-pill ok">Presente</span></div>
+            <div class="mini-table-row"><div class="av"></div><span class="name">Luis García</span><span class="time">08:32</span><span class="mini-pill late">Tardanza</span></div>
+            <div class="mini-table-row"><div class="av"></div><span class="name">María López</span><span class="time">—</span><span class="mini-pill late">Falta</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FUNCIONES ===== -->
+  <section class="landing-section" id="funciones">
+    <div class="landing-section-inner">
+      <span class="landing-eyebrow">Todo lo que necesitas</span>
+      <h2 class="landing-h2">Funciones pensadas para tu día a día</h2>
+      <p class="landing-sub">&nbsp;</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-shot">
+            <div class="fs-sidebar"><div class="dot active"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="fs-main">
+              <div class="fs-bar w40"></div>
+              <div class="fs-card" style="height:44px;"></div>
+              <div class="fs-bar w60"></div>
+            </div>
+          </div>
+          <div class="feature-body">
+            <h3>Control diario en tiempo real</h3>
+            <p>Mira quién llegó, quién falta y quién llegó tarde sin revisar mensajes ni hojas de cálculo.</p>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-shot">
+            <div class="fs-sidebar"><div class="dot"></div><div class="dot active"></div><div class="dot"></div><div class="dot"></div></div>
+            <div class="fs-main">
+              <div class="fs-card" style="height:16px;"></div>
+              <div class="fs-card" style="height:16px;"></div>
+              <div class="fs-card" style="height:16px;"></div>
+            </div>
+          </div>
+          <div class="feature-body">
+            <h3>Historial completo</h3>
+            <p>Consulta cualquier día, trabajador o incidencia en segundos.</p>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-shot">
+            <div class="fs-sidebar"><div class="dot"></div><div class="dot"></div><div class="dot active"></div><div class="dot"></div></div>
+            <div class="fs-main">
+              <div class="fs-bar w60"></div>
+              <div class="fs-card" style="height:20px;"></div>
+              <div class="fs-card" style="height:20px;"></div>
+            </div>
+          </div>
+          <div class="feature-body">
+            <h3>Trabajadores y horarios</h3>
+            <p>Define horarios, turnos y administra tu equipo desde un solo lugar.</p>
+          </div>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-shot">
+            <div class="fs-sidebar"><div class="dot"></div><div class="dot"></div><div class="dot"></div><div class="dot active"></div></div>
+            <div class="fs-main">
+              <div class="fs-bar w40"></div>
+              <div class="fs-card" style="height:12px;"></div>
+              <div class="fs-card" style="height:12px;"></div>
+              <div class="fs-card" style="height:12px;"></div>
+            </div>
+          </div>
+          <div class="feature-body">
+            <h3>Información lista para planilla</h3>
+            <p>Convierte registros de asistencia en información ordenada para preparar remuneraciones.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== COMPARACION ===== -->
+  <section class="landing-section">
+    <div class="landing-section-inner compare-section">
+      <div>
+        <span class="landing-eyebrow" style="display:inline-block;">Una forma más inteligente de trabajar</span>
+        <h2 class="landing-h2">DANA vs. control tradicional</h2>
+      </div>
+
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th class="old">Control tradicional</th>
+            <th class="dana"><img src="/dana.png" alt="" style="filter: brightness(0) saturate(100%) invert(24%) sepia(76%) saturate(2500%) hue-rotate(217deg) brightness(97%) contrast(93%);" /></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="old"><span class="compare-row-icon no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>Excel manual</span></td>
+            <td class="dana"><span class="compare-row-icon yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Registro automático</span></td>
+          </tr>
+          <tr>
+            <td class="old"><span class="compare-row-icon no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>Cuadernos</span></td>
+            <td class="dana"><span class="compare-row-icon yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Historial digital</span></td>
+          </tr>
+          <tr>
+            <td class="old"><span class="compare-row-icon no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>WhatsApp</span></td>
+            <td class="dana"><span class="compare-row-icon yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Información centralizada</span></td>
+          </tr>
+          <tr>
+            <td class="old"><span class="compare-row-icon no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>Revisar tardanzas manualmente</span></td>
+            <td class="dana"><span class="compare-row-icon yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Tardanzas identificadas</span></td>
+          </tr>
+          <tr>
+            <td class="old"><span class="compare-row-icon no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>Equipos biométricos</span></td>
+            <td class="dana"><span class="compare-row-icon yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Código QR</span></td>
+          </tr>
+          <tr>
+            <td class="old"><span class="compare-row-icon no"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>Instalación física</span></td>
+            <td class="dana"><span class="compare-row-icon yes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Funciona desde el navegador</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===== PRECIOS ===== -->
+  <section class="landing-section" id="precios">
+    <div class="landing-section-inner">
+      <span class="landing-eyebrow">Precios</span>
+      <h2 class="landing-h2">Un solo precio, sin sorpresas</h2>
+      <p class="landing-sub">Sin importar cuántos trabajadores tengas, pagas lo mismo — nada de cobros por trabajador que suben cada mes.</p>
+
+      <div class="pricing-card">
+        <div class="pricing-plan">Plan anual</div>
+        <div class="pricing-amount">S/ 199 <span>/ año</span></div>
+        <p class="pricing-note">Un solo pago. Sin límite de trabajadores.</p>
+        <ul class="pricing-features">
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Trabajadores ilimitados</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Código QR permanente e imprimible</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Horarios, turnos y horas extra automáticas</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Geolocalización antifraude opcional</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Historial exportable para tu planilla</li>
+        </ul>
+        <a href="mailto:bc.diego040492@gmail.com?subject=Quiero%20contratar%20DANA" class="btn-hero btn-hero-primary">Empezar ahora</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== FAQ ===== -->
+  <section class="landing-section" id="preguntas-frecuentes">
+    <div class="landing-section-inner">
+      <span class="landing-eyebrow">Preguntas frecuentes</span>
+      <h2 class="landing-h2">Lo que otros negocios preguntan</h2>
+      <p class="landing-sub">&nbsp;</p>
+
+      <div class="faq-list">
+        <details class="faq-item" open>
+          <summary>¿Necesito comprar algún equipo?</summary>
+          <p>No. Tus trabajadores marcan asistencia escaneando un código QR con su propio celular — no hay biométricos, tarjetas ni instalaciones que comprar.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Cómo evito que alguien marque por otro trabajador?</summary>
+          <p>Cada DNI queda vinculado a un solo celular la primera vez que se usa, y puedes activar verificación de ubicación para exigir que el trabajador esté físicamente en el negocio al marcar.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿El código QR cambia todos los días?</summary>
+          <p>No — lo imprimes una sola vez y se queda activo indefinidamente. Si sospechas mal uso, puedes invalidarlo y generar uno nuevo cuando quieras desde el panel.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Puedo usarlo con horarios rotativos o turnos distintos por trabajador?</summary>
+          <p>Sí, puedes asignar horarios semanales fijos o turnos rotativos por trabajador, y DANA calcula automáticamente tardanzas y horas extra según ese horario.</p>
+        </details>
+        <details class="faq-item">
+          <summary>¿Cómo saco la información para la planilla?</summary>
+          <p>Desde el Historial puedes filtrar por fecha y trabajador, y exportar todo a un archivo listo para revisar antes de procesar tu planilla.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA FINAL ===== -->
+  <section class="landing-section" style="padding-top:0;">
+    <div class="cta-section">
+      <h2>Empieza a controlar la asistencia de tu equipo hoy</h2>
+      <p>Escríbenos y te ayudamos a configurar tu empresa en minutos.</p>
+      <a href="mailto:bc.diego040492@gmail.com?subject=Quiero%20probar%20DANA" class="btn-hero btn-hero-primary">Probar DANA</a>
+    </div>
+  </section>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>
