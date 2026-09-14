@@ -26,7 +26,7 @@ function iniciales(nombre) {
 
 function renderWorkers(workers) {
   if (workers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6">Sin resultados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7">Sin resultados</td></tr>';
     return;
   }
 
@@ -39,6 +39,13 @@ function renderWorkers(workers) {
           <td>${etiquetaHorario(w.tipo_horario)} — <a href="/admin/trabajadores/${w.id}/horario">Configurar</a></td>
           <td><input type="checkbox" class="input-activo" ${w.activo ? 'checked' : ''} /></td>
           <td><input type="checkbox" class="input-horas-extra" ${w.horas_extra_activas ? 'checked' : ''} /></td>
+          <td>
+            ${
+              w.dispositivo_vinculado
+                ? '<span class="badge badge-tarde">Vinculado</span> <button type="button" class="boton-mini secundario desvincular-btn">Desvincular</button>'
+                : '<span class="badge badge-a_tiempo">Sin vincular</span>'
+            }
+          </td>
           <td><button type="button" class="boton-mini guardar-btn">Guardar</button></td>
         </tr>`
     )
@@ -48,13 +55,13 @@ function renderWorkers(workers) {
 async function cargarWorkers() {
   const resp = await fetch('/api/admin/workers');
   if (!resp.ok) {
-    tbody.innerHTML = '<tr><td colspan="6">Error al cargar</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7">Error al cargar</td></tr>';
     return;
   }
   workersCache = await resp.json();
 
   if (workersCache.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6">Aún no hay trabajadores registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7">Aún no hay trabajadores registrados</td></tr>';
     return;
   }
 
@@ -68,6 +75,18 @@ buscarInput.addEventListener('input', () => {
 });
 
 tbody.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('desvincular-btn')) {
+    if (!confirm('¿Desvincular el dispositivo de este trabajador? Podrá identificarse de nuevo desde cualquier celular.')) return;
+    const id = e.target.closest('tr').dataset.id;
+    e.target.disabled = true;
+    await fetch(`/api/admin/workers/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dispositivo_vinculado: false })
+    });
+    return cargarWorkers();
+  }
+
   if (!e.target.classList.contains('guardar-btn')) return;
 
   const fila = e.target.closest('tr');

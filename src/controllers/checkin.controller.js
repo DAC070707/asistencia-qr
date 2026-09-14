@@ -140,6 +140,19 @@ async function identificar(req, res) {
     });
   }
 
+  // Reclama el DNI para este dispositivo (update atomico condicional a
+  // dispositivo_vinculado=false). Si ya estaba vinculado a otro dispositivo,
+  // esto falla y se corta el flujo aca mismo.
+  const gano = await attendanceService.vincularDispositivo(worker.id);
+  if (!gano) {
+    return res.render('checkin/form', {
+      token,
+      logoEmpresaUrl,
+      error:
+        'Este DNI ya está vinculado a un dispositivo. Si cambiaste de celular, pide al administrador que reinicie el vínculo.'
+    });
+  }
+
   setDeviceCookie(res, worker.id, codigo.empresa_id);
 
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);

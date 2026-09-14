@@ -300,12 +300,15 @@ async function listarWorkers(req, res) {
 
 async function actualizarWorker(req, res) {
   const { id } = req.params;
-  const { activo, nombre, horas_extra_activas } = req.body;
+  const { activo, nombre, horas_extra_activas, dispositivo_vinculado } = req.body;
 
   const cambios = {};
   if (typeof activo === 'boolean') cambios.activo = activo;
   if (typeof horas_extra_activas === 'boolean') cambios.horas_extra_activas = horas_extra_activas;
   if (typeof nombre === 'string' && nombre.trim()) cambios.nombre = nombre.trim();
+  // Solo se permite desvincular (false) desde el panel admin — vincular
+  // (true) es exclusivo del flujo de identificacion en checkin.controller.
+  if (dispositivo_vinculado === false) cambios.dispositivo_vinculado = false;
 
   if (Object.keys(cambios).length === 0) {
     return res.status(400).json({ error: 'Nada que actualizar' });

@@ -26,6 +26,20 @@ async function buscarOCrearWorker({ dni, nombre, empresaId }) {
   return creado;
 }
 
+// Intenta reclamar el DNI para el dispositivo que se esta identificando
+// ahora. Condicional (WHERE dispositivo_vinculado = false) para que, si dos
+// dispositivos intentan reclamarlo casi al mismo tiempo, solo uno gane la
+// carrera. Devuelve true si este dispositivo gano/ya estaba vinculado a el
+// mismo worker sin haberlo reclamado antes; false si otro dispositivo ya lo
+// tenia vinculado.
+async function vincularDispositivo(workerId) {
+  const [actualizado] = await db('workers')
+    .where({ id: workerId, dispositivo_vinculado: false })
+    .update({ dispositivo_vinculado: true })
+    .returning('*');
+  return Boolean(actualizado);
+}
+
 async function buscarAsistenciaDeHoy(workerId) {
   const fecha = hoyLima();
   return db('attendance').where({ worker_id: workerId, fecha }).first();
@@ -189,6 +203,7 @@ async function listarHistorialDeWorker({ workerId, desde, hasta }) {
 
 module.exports = {
   buscarOCrearWorker,
+  vincularDispositivo,
   buscarAsistenciaDeHoy,
   marcarEntrada,
   marcarSalida,
