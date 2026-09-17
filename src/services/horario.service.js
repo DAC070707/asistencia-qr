@@ -303,10 +303,88 @@ async function decorarConHorario(registros, toleranciaMinutos) {
   );
 }
 
+// Arma, dia por dia y trabajador por trabajador, la grilla completa de
+// asistencia de un rango de fechas: cada fila es una marcacion real, o una
+// inasistencia (le tocaba trabajar segun su horario y no hay registro), o
+// simplemente no existe (dia de descanso sin marcar, no es inasistencia).
+// Un trabajador sin tipo_horario asignado no genera filas de inasistencia
+// (no hay forma de saber que dia le tocaba) pero sus marcaciones reales si
+// aparecen igual.
+async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId }) {
+  const workersQuery = db('workers').where({ empresa_id: empresaId, activo: true });
+  if (workerId) workersQuery.andWhere({ id: workerId });
+  const workers = await workersQuery.orderBy('nombre', 'asc');
+
+  const toleranciaMinutos = await obtenerToleranciaEmpresa(empresaId);
+
+  const attendanceQuery = db('attendance')
+    .where({ empresa_id: empresaId })
+    .andWhere('fecha', '>=', desde)
+    .andWhere('fecha', '<=', hasta);
+  if (workerId) attendanceQuery.andWhere({ worker_id: workerId });
+  const registrosReales = await attendanceQuery;
+
+  const porWorkerFecha = new Map();
+  for (const r of registrosReales) {
+    porWorkerFecha.set(`${r.worker_id}|${soloFecha(r.fecha)}`, r);
+  }
+
+  const fechas = [];
+  for (
+    let cursor = new Date(`${soloFecha(desde)}T00:00:00Z`), fin = new Date(`${soloFecha(hasta)}T00:00:00Z`);
+    cursor <= fin;
+    cursor.setUTCDate(cursor.getUTCDate() + 1)
+  ) {
+    fechas.push(cursor.toISOString().slice(0, 10));
+  }
+
+  const filas = [];
+  for (const worker of workers) {
+    for (const fecha of fechas) {
+      const registro = porWorkerFecha.get(`${worker.id}|${fecha}`);
+
+      if (registro) {
+        const horario = await resolverHorarioDelDia(worker.id, fecha);
+        const entrada = clasificarEntrada({ horaReal: registro.creado_en, horario, toleranciaMinutos });
+        filas.push({
+          worker,
+          fecha,
+          horaEntrada: registro.creado_en,
+          horaSalida: registro.hora_salida,
+          tardanzaMinutos: entrada.estado === 'tarde' ? entrada.minutos : null,
+          horasExtra25: Number(registro.horas_extra_25) || 0,
+          horasExtra35: Number(registro.horas_extra_35) || 0,
+          inasistencia: false
+        });
+        continue;
+      }
+
+      if (!worker.tipo_horario) continue;
+
+      const horario = await resolverHorarioDelDia(worker.id, fecha);
+      if (horario && !horario.libre) {
+        filas.push({
+          worker,
+          fecha,
+          horaEntrada: null,
+          horaSalida: null,
+          tardanzaMinutos: null,
+          horasExtra25: 0,
+          horasExtra35: 0,
+          inasistencia: true
+        });
+      }
+    }
+  }
+
+  return filas;
+}
+
 module.exports = {
   diaSemanaDeFecha,
   resolverHorarioDelDia,
   decorarConHorario,
+  construirGrillaAsistencia,
   obtenerToleranciaEmpresa,
   obtenerConfigUbicacion,
   obtenerHorarioDeWorker,

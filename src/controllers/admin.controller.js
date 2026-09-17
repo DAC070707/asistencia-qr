@@ -1,3 +1,4 @@
+const ExcelJS = require('exceljs');
 const dailyCodeService = require('../services/dailyCode.service');
 const qrImageService = require('../services/qrImage.service');
 const attendanceService = require('../services/attendance.service');
@@ -231,64 +232,177 @@ async function asistenciaPorFecha(req, res) {
   res.json(await horarioService.decorarConHorario(registros, tolerancia));
 }
 
-async function exportarCsv(req, res) {
+const AZUL_ENCABEZADO = 'FF4472C4';
+const AMARILLO_LEIDA = 'FFFFF2CC';
+const BORDE_FINO = { style: 'thin', color: { argb: 'FFB7B7B7' } };
+const BORDES_CELDA = { top: BORDE_FINO, left: BORDE_FINO, bottom: BORDE_FINO, right: BORDE_FINO };
+
+function formatoHoraLima(valor) {
+  return valor
+    ? new Intl.DateTimeFormat('es-PE', {
+        timeZone: 'America/Lima',
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      }).format(new Date(valor))
+    : '';
+}
+
+function formatoFechaDDMMYYYY(fechaTxt) {
+  const [anio, mes, dia] = fechaTxt.split('-');
+  return `${dia}/${mes}/${anio}`;
+}
+
+async function exportarExcel(req, res) {
   const rango = parametrosRango(req.query);
   if (rango.error) {
     return res.status(400).json({ error: rango.error });
   }
-  const { desde, hasta } = rango;
+  const { desde, hasta, workerId } = rango;
 
-  const registros = await attendanceService.listarAsistencia({
+  const filas = await horarioService.construirGrillaAsistencia({
     empresaId: req.admin.empresaId,
-    ...rango
+    desde,
+    hasta,
+    workerId
   });
+  const empresaNombre = await nombreDeEmpresa(req.admin.empresaId);
 
-  const formatoHora = (valor) =>
-    valor
-      ? new Intl.DateTimeFormat('es-PE', {
-          timeZone: 'America/Lima',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true
-        }).format(new Date(valor))
-      : '';
+  const workbook = new ExcelJS.Workbook();
 
-  const filas = [
-    [
-      'DNI',
-      'Nombre',
-      'Fecha',
-      'Hora entrada (Lima)',
-      'Hora salida (Lima)',
-      'Horas extra 25%',
-      'Horas extra 35%',
-      'Estado horas extra',
-      'Distancia entrada (m)'
-    ]
-  ];
-  for (const r of registros) {
-    filas.push([
-      r.dni,
-      r.nombre,
-      formatoFecha(r.fecha),
-      formatoHora(r.creado_en),
-      formatoHora(r.hora_salida),
-      r.horas_extra_25,
-      r.horas_extra_35,
-      r.horas_extra_estado,
-      r.entrada_distancia_m === null || r.entrada_distancia_m === undefined ? '' : r.entrada_distancia_m
-    ]);
+  // ---- Hoja 1: Resumen por trabajador ----
+  const resumenPorWorker = new Map();
+  for (const f of filas) {
+    const acc = resumenPorWorker.get(f.worker.id) || {
+      nombre: f.worker.nombre,
+      dni: f.worker.dni,
+      inasistencias: 0,
+      horasExtra25: 0,
+      horasExtra35: 0
+    };
+    if (f.inasistencia) acc.inasistencias += 1;
+    acc.horasExtra25 += f.horasExtra25;
+    acc.horasExtra35 += f.horasExtra35;
+    resumenPorWorker.set(f.worker.id, acc);
   }
 
-  const csv = filas
-    .map((fila) => fila.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','))
-    .join('\n');
+  const hojaResumen = workbook.addWorksheet('Resumen');
+  hojaResumen.columns = [
+    { header: 'Trabajador', key: 'nombre', width: 30 },
+    { header: 'DNI', key: 'dni', width: 14 },
+    { header: 'Inasistencias', key: 'inasistencias', width: 16 },
+    { header: 'Horas extra 25%', key: 'horasExtra25', width: 16 },
+    { header: 'Horas extra 35%', key: 'horasExtra35', width: 16 }
+  ];
+  hojaResumen.getRow(1).eachCell((celda) => {
+    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
+    celda.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+    celda.border = BORDES_CELDA;
+  });
+  for (const [, r] of resumenPorWorker) {
+    const fila = hojaResumen.addRow({
+      nombre: r.nombre,
+      dni: r.dni,
+      inasistencias: r.inasistencias,
+      horasExtra25: Number(r.horasExtra25.toFixed(2)),
+      horasExtra35: Number(r.horasExtra35.toFixed(2))
+    });
+    fila.eachCell((celda) => {
+      celda.border = BORDES_CELDA;
+    });
+  }
 
+  // ---- Hoja 2: Detalle (formato solicitado) ----
+  const hojaDetalle = workbook.addWorksheet('Detalle');
+  hojaDetalle.columns = [
+    { key: 'fecha', width: 12 },
+    { key: 'dni', width: 12 },
+    { key: 'nombre', width: 28 },
+    { key: 'horaEntrada', width: 16 },
+    { key: 'tardanza', width: 12 },
+    { key: 'horaSalida', width: 16 },
+    { key: 'extra25', width: 16 },
+    { key: 'extra35', width: 16 },
+    { key: 'observaciones', width: 32 }
+  ];
+
+  hojaDetalle.mergeCells('A1:I1');
+  const celdaTitulo = hojaDetalle.getCell('A1');
+  celdaTitulo.value = `Control de asistencia — General (${empresaNombre})`;
+  celdaTitulo.font = { bold: true, size: 13 };
+
+  const encabezados = [
+    'Fecha',
+    'DNI',
+    'Nombre',
+    'Hora entrada (leída)',
+    'Tardanza (min)',
+    'Hora salida (leída)',
+    'Horas extra 25%',
+    'Horas extra 35%',
+    'Observaciones (Colocar si hubo inasistencia)'
+  ];
+  const filaEncabezado = hojaDetalle.addRow(encabezados);
+  filaEncabezado.eachCell((celda) => {
+    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
+    celda.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+    celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    celda.border = BORDES_CELDA;
+  });
+
+  let totalTardanza = 0;
+  let totalExtra25 = 0;
+  let totalExtra35 = 0;
+
+  filas
+    .sort((a, b) => (a.fecha === b.fecha ? a.worker.nombre.localeCompare(b.worker.nombre) : a.fecha < b.fecha ? -1 : 1))
+    .forEach((f) => {
+      totalTardanza += f.tardanzaMinutos || 0;
+      totalExtra25 += f.horasExtra25;
+      totalExtra35 += f.horasExtra35;
+
+      const fila = hojaDetalle.addRow([
+        formatoFechaDDMMYYYY(f.fecha),
+        f.worker.dni,
+        f.worker.nombre,
+        formatoHoraLima(f.horaEntrada),
+        f.tardanzaMinutos || '',
+        formatoHoraLima(f.horaSalida),
+        f.horasExtra25 || '',
+        f.horasExtra35 || '',
+        f.inasistencia ? 'Inasistencia' : ''
+      ]);
+      fila.eachCell((celda) => {
+        celda.border = BORDES_CELDA;
+      });
+      fila.getCell(1).font = { color: { argb: 'FF1155CC' } };
+      fila.getCell(2).font = { color: { argb: 'FF1155CC' } };
+      fila.getCell(3).font = { color: { argb: 'FF1155CC' } };
+      fila.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMARILLO_LEIDA } };
+      fila.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMARILLO_LEIDA } };
+    });
+
+  const filaTotales = hojaDetalle.addRow([
+    'Totales',
+    '',
+    '',
+    '',
+    Number(totalTardanza.toFixed(0)),
+    '',
+    Number(totalExtra25.toFixed(2)),
+    Number(totalExtra35.toFixed(2)),
+    ''
+  ]);
+  filaTotales.eachCell((celda) => {
+    celda.font = { bold: true };
+    celda.border = BORDES_CELDA;
+  });
+
+  const buffer = await workbook.xlsx.writeBuffer();
   const nombreArchivo = desde === hasta ? desde : `${desde}_a_${hasta}`;
-  res.set('Content-Type', 'text/csv; charset=utf-8');
-  res.set('Content-Disposition', `attachment; filename="asistencia_${nombreArchivo}.csv"`);
-  res.send('﻿' + csv); // BOM para que Excel reconozca UTF-8
+  res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.set('Content-Disposition', `attachment; filename="asistencia_${nombreArchivo}.xlsx"`);
+  res.send(buffer);
 }
 
 async function listarWorkers(req, res) {
@@ -561,7 +675,7 @@ module.exports = {
   regenerarQr,
   asistenciaDeHoy,
   asistenciaPorFecha,
-  exportarCsv,
+  exportarExcel,
   listarWorkers,
   actualizarWorker,
   editarAsistencia,

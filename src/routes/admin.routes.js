@@ -59,9 +59,9 @@ router.get(
   asyncHandler(adminController.asistenciaPorFecha)
 );
 router.get(
-  '/api/admin/attendance/export.csv',
+  '/api/admin/attendance/export.xlsx',
   requireAdminAuth,
-  asyncHandler(adminController.exportarCsv)
+  asyncHandler(adminController.exportarExcel)
 );
 router.get('/api/admin/workers', requireAdminAuth, asyncHandler(adminController.listarWorkers));
 router.patch(

@@ -92,7 +92,7 @@ function paramsActuales() {
 }
 
 function actualizarExportLink() {
-  exportLink.href = `/api/admin/attendance/export.csv?${paramsActuales().toString()}`;
+  exportLink.href = `/api/admin/attendance/export.xlsx?${paramsActuales().toString()}`;
 }
 
 function filaHtml(r) {
