@@ -414,7 +414,7 @@ async function listarWorkers(req, res) {
 
 async function actualizarWorker(req, res) {
   const { id } = req.params;
-  const { activo, nombre, horas_extra_activas, dispositivo_vinculado } = req.body;
+  const { activo, nombre, horas_extra_activas, dispositivo_vinculado, fecha_ingreso } = req.body;
 
   const cambios = {};
   if (typeof activo === 'boolean') cambios.activo = activo;
@@ -423,6 +423,15 @@ async function actualizarWorker(req, res) {
   // Solo se permite desvincular (false) desde el panel admin — vincular
   // (true) es exclusivo del flujo de identificacion en checkin.controller.
   if (dispositivo_vinculado === false) cambios.dispositivo_vinculado = false;
+  if (fecha_ingreso !== undefined) {
+    if (fecha_ingreso === null || fecha_ingreso === '') {
+      cambios.fecha_ingreso = null;
+    } else if (FECHA_REGEX.test(fecha_ingreso)) {
+      cambios.fecha_ingreso = fecha_ingreso;
+    } else {
+      return res.status(400).json({ error: 'Fecha de ingreso invalida, usa YYYY-MM-DD' });
+    }
+  }
 
   if (Object.keys(cambios).length === 0) {
     return res.status(400).json({ error: 'Nada que actualizar' });

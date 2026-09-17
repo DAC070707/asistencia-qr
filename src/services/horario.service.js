@@ -309,7 +309,10 @@ async function decorarConHorario(registros, toleranciaMinutos) {
 // simplemente no existe (dia de descanso sin marcar, no es inasistencia).
 // Un trabajador sin tipo_horario asignado no genera filas de inasistencia
 // (no hay forma de saber que dia le tocaba) pero sus marcaciones reales si
-// aparecen igual.
+// aparecen igual. Tampoco se generan inasistencias antes de su fecha_ingreso
+// (o, si no la configuraron, antes de que el trabajador se creara en el
+// sistema) — evita marcar como "no vino" un dia en que todavia no era
+// trabajador de la empresa.
 async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId }) {
   const workersQuery = db('workers').where({ empresa_id: empresaId, activo: true });
   if (workerId) workersQuery.andWhere({ id: workerId });
@@ -340,6 +343,8 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId }) 
 
   const filas = [];
   for (const worker of workers) {
+    const pisoFecha = worker.fecha_ingreso ? soloFecha(worker.fecha_ingreso) : soloFecha(worker.creado_en);
+
     for (const fecha of fechas) {
       const registro = porWorkerFecha.get(`${worker.id}|${fecha}`);
 
@@ -360,6 +365,7 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId }) 
       }
 
       if (!worker.tipo_horario) continue;
+      if (fecha < pisoFecha) continue;
 
       const horario = await resolverHorarioDelDia(worker.id, fecha);
       if (horario && !horario.libre) {
