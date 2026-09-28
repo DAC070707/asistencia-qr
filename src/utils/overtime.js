@@ -13,29 +13,21 @@ function round2(n) {
   return Math.round(n * 100) / 100;
 }
 
-// horaEntrada/horaSalida: Date (instantes reales del marcado).
-// horaEntradaProgramada/horaSalidaProgramada: "HH:MM:SS" del horario del trabajador.
-function calcularHorasExtra({
-  horaEntrada,
-  horaSalida,
-  horaEntradaProgramada,
-  horaSalidaProgramada
-}) {
-  const entradaProg = horaATexto(horaEntradaProgramada);
+// horaSalida: Date (instante real de la salida marcada).
+// horaSalidaProgramada: "HH:MM:SS" del horario del trabajador.
+// Se mide unicamente contra la hora de salida programada (hora del dia, no
+// el instante), sin relacionarla con la hora de entrada: si el trabajador
+// entro tarde ese dia no le resta de la hora extra que genera al salir
+// despues de su horario.
+function calcularHorasExtra({ horaSalida, horaSalidaProgramada }) {
   const salidaProg = horaATexto(horaSalidaProgramada);
 
-  if (entradaProg === null || salidaProg === null || !horaEntrada || !horaSalida) {
+  if (salidaProg === null || !horaSalida) {
     return { extra25: 0, extra35: 0 };
   }
 
-  const horasProgramadas = salidaProg - entradaProg;
-  const horasTrabajadas = (new Date(horaSalida) - new Date(horaEntrada)) / (1000 * 60 * 60);
-
-  if (horasProgramadas <= 0 || horasTrabajadas <= 0) {
-    return { extra25: 0, extra35: 0 };
-  }
-
-  const extraTotal = Math.max(0, horasTrabajadas - horasProgramadas);
+  const real = horaDecimalLima(horaSalida);
+  const extraTotal = Math.max(0, real - salidaProg);
   const extra25 = Math.min(LIMITE_25, extraTotal);
   const extra35 = Math.max(0, extraTotal - LIMITE_25);
 
@@ -91,7 +83,9 @@ function minutosRedondeados(horasDecimal) {
 // default silencioso — se resuelve explicitamente con
 // horarioService.obtenerToleranciaEmpresa antes de llamar esta funcion).
 // Devuelve { estado: 'a_tiempo'|'tarde'|'fuera_de_horario'|null, minutos }.
-// "minutos" es la tardanza exacta (solo cuando estado='tarde'), null si no aplica.
+// "minutos" es el EXCESO sobre la tolerancia (solo cuando estado='tarde'),
+// null si no aplica. Ej: entrada programada 10:00, tolerancia 5 min, llego
+// 10:06 -> tarde, minutos: 1 (6 min de retraso - 5 de tolerancia).
 function clasificarEntrada({ horaReal, horario, toleranciaMinutos }) {
   if (typeof toleranciaMinutos !== 'number') {
     throw new Error('clasificarEntrada requiere toleranciaMinutos');
@@ -103,7 +97,7 @@ function clasificarEntrada({ horaReal, horario, toleranciaMinutos }) {
 
   const real = horaDecimalLima(horaReal);
   const diffMin = minutosRedondeados(real - prog);
-  if (diffMin > toleranciaMinutos) return { estado: 'tarde', minutos: diffMin };
+  if (diffMin > toleranciaMinutos) return { estado: 'tarde', minutos: diffMin - toleranciaMinutos };
   return { estado: 'a_tiempo', minutos: null };
 }
 

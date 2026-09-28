@@ -92,9 +92,7 @@ async function marcarSalida({ workerId, geo }) {
   const horario = await resolverHorarioDelDia(workerId, existente.fecha);
   const { extra25, extra35 } = worker.horas_extra_activas
     ? calcularHorasExtra({
-        horaEntrada: existente.creado_en,
         horaSalida,
-        horaEntradaProgramada: horario && !horario.libre ? horario.horaEntrada : null,
         horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
       })
     : { extra25: 0, extra35: 0 };
@@ -164,9 +162,7 @@ async function editarRegistro(id, { horaEntrada, horaSalida }, adminId, empresaI
   const { extra25, extra35 } =
     nuevaSalida && worker.horas_extra_activas
       ? calcularHorasExtra({
-          horaEntrada: nuevaEntrada,
           horaSalida: nuevaSalida,
-          horaEntradaProgramada: horario && !horario.libre ? horario.horaEntrada : null,
           horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
         })
       : { extra25: 0, extra35: 0 };
