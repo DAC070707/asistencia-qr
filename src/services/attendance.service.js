@@ -16,6 +16,8 @@ const COLUMNAS_ASISTENCIA = [
   'attendance.horas_extra_estado',
   'attendance.editado_en',
   'attendance.entrada_distancia_m',
+  'attendance.refrigerio_salida_en',
+  'attendance.refrigerio_regreso_en',
   'attendance.sucursal_id',
   'sucursales.nombre as sucursal_nombre'
 ];
@@ -107,6 +109,35 @@ async function marcarSalida({ workerId, geo }) {
       salida_lng: geo?.lng ?? null,
       salida_distancia_m: geo?.distanciaMetros ?? null
     })
+    .returning('*');
+  return { registro: actualizado, yaExistia: false };
+}
+
+// Refrigerio: salida y regreso, una vez por dia, solo entre la entrada y la
+// salida del dia. Marcar lo mismo dos veces devuelve la hora ya registrada.
+async function marcarRefrigerioSalida({ workerId }) {
+  const existente = await buscarAsistenciaDeHoy(workerId);
+  if (!existente) return { error: 'sin_entrada' };
+  if (existente.refrigerio_salida_en) return { registro: existente, yaExistia: true };
+  if (existente.hora_salida) return { error: 'jornada_cerrada' };
+
+  const [actualizado] = await db('attendance')
+    .where({ id: existente.id })
+    .update({ refrigerio_salida_en: new Date() })
+    .returning('*');
+  return { registro: actualizado, yaExistia: false };
+}
+
+async function marcarRefrigerioRegreso({ workerId }) {
+  const existente = await buscarAsistenciaDeHoy(workerId);
+  if (!existente) return { error: 'sin_entrada' };
+  if (existente.refrigerio_regreso_en) return { registro: existente, yaExistia: true };
+  if (!existente.refrigerio_salida_en) return { error: 'sin_salida_refrigerio' };
+  if (existente.hora_salida) return { error: 'jornada_cerrada' };
+
+  const [actualizado] = await db('attendance')
+    .where({ id: existente.id })
+    .update({ refrigerio_regreso_en: new Date() })
     .returning('*');
   return { registro: actualizado, yaExistia: false };
 }
@@ -236,6 +267,8 @@ module.exports = {
   buscarAsistenciaDeHoy,
   marcarEntrada,
   marcarSalida,
+  marcarRefrigerioSalida,
+  marcarRefrigerioRegreso,
   editarRegistro,
   cambiarEstadoHorasExtra,
   listarAsistenciaDeHoy,

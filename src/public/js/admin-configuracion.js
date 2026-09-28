@@ -45,7 +45,33 @@ async function cargarConfiguracion() {
   if (!resp.ok) return;
   const data = await resp.json();
   document.getElementById('tolerancia-input').value = data.toleranciaEntradaMinutos;
+  document.getElementById('refrigerio-activo').checked = data.controlaRefrigerio;
 }
+
+document.getElementById('refrigerio-btn').addEventListener('click', async () => {
+  const errorBox = document.getElementById('refrigerio-error');
+  const btn = document.getElementById('refrigerio-btn');
+  errorBox.innerHTML = '';
+  btn.disabled = true;
+  try {
+    const resp = await fetch('/api/admin/empresa/configuracion', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ controlaRefrigerio: document.getElementById('refrigerio-activo').checked })
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      errorBox.innerHTML = `<div class="error">${data.error || 'No se pudo guardar'}</div>`;
+      return;
+    }
+    btn.textContent = 'Guardado ✓';
+    setTimeout(() => {
+      btn.textContent = 'Guardar';
+    }, 1500);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 document.getElementById('tolerancia-btn').addEventListener('click', async () => {
   const errorBox = document.getElementById('tolerancia-error');

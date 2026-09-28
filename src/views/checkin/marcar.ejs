@@ -42,6 +42,20 @@
             Marcar entrada
           </button>
         </form>
+        <% if (controlaRefrigerio) { %>
+          <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%; margin-top:10px;">
+            <input type="hidden" name="accion" value="refrigerio_salida" />
+            <button type="submit" class="secundario" style="width:100%;" <%= (!horaEntrada || horaSalida || horaRefrigerioSalida) ? 'disabled' : '' %>>
+              Salida a refrigerio<% if (horaRefrigerioSalida) { %> · <%= horaRefrigerioSalida %><% } %>
+            </button>
+          </form>
+          <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%; margin-top:10px;">
+            <input type="hidden" name="accion" value="refrigerio_regreso" />
+            <button type="submit" class="secundario" style="width:100%;" <%= (!horaRefrigerioSalida || horaSalida || horaRefrigerioRegreso) ? 'disabled' : '' %>>
+              Regreso de refrigerio<% if (horaRefrigerioRegreso) { %> · <%= horaRefrigerioRegreso %><% } %>
+            </button>
+          </form>
+        <% } %>
         <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%; margin-top:10px;">
           <input type="hidden" name="accion" value="salida" />
           <button type="submit" class="secundario" style="width:100%;" <%= (!horaEntrada || horaSalida) ? 'disabled' : '' %>>

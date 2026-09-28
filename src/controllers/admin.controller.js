@@ -41,18 +41,32 @@ async function subirLogo(req, res) {
 
 async function obtenerConfiguracionEmpresa(req, res) {
   const empresa = await db('empresas').where({ id: req.admin.empresaId }).first();
-  res.json({ toleranciaEntradaMinutos: empresa.tolerancia_entrada_minutos });
+  res.json({
+    toleranciaEntradaMinutos: empresa.tolerancia_entrada_minutos,
+    controlaRefrigerio: empresa.controla_refrigerio
+  });
 }
 
+// Actualizacion parcial: cada tarjeta de Configuracion guarda solo lo suyo.
 async function guardarConfiguracionEmpresa(req, res) {
-  const { toleranciaEntradaMinutos } = req.body;
-  const minutos = Number(toleranciaEntradaMinutos);
-  if (!Number.isInteger(minutos) || minutos < 0 || minutos > 120) {
-    return res.status(400).json({ error: 'La tolerancia debe ser un entero entre 0 y 120 minutos' });
+  const { toleranciaEntradaMinutos, controlaRefrigerio } = req.body;
+  const cambios = {};
+
+  if (toleranciaEntradaMinutos !== undefined) {
+    const minutos = Number(toleranciaEntradaMinutos);
+    if (!Number.isInteger(minutos) || minutos < 0 || minutos > 120) {
+      return res.status(400).json({ error: 'La tolerancia debe ser un entero entre 0 y 120 minutos' });
+    }
+    cambios.tolerancia_entrada_minutos = minutos;
   }
-  await db('empresas')
-    .where({ id: req.admin.empresaId })
-    .update({ tolerancia_entrada_minutos: minutos });
+  if (controlaRefrigerio !== undefined) {
+    cambios.controla_refrigerio = Boolean(controlaRefrigerio);
+  }
+  if (Object.keys(cambios).length === 0) {
+    return res.status(400).json({ error: 'Nada que guardar' });
+  }
+
+  await db('empresas').where({ id: req.admin.empresaId }).update(cambios);
   return obtenerConfiguracionEmpresa(req, res);
 }
 
@@ -336,6 +350,9 @@ async function exportarExcel(req, res) {
     sucursalId: sucursalAsignadaId
   });
   const empresaNombre = await nombreDeEmpresa(req.admin.empresaId);
+  const { controla_refrigerio: conRefrigerio } = await db('empresas')
+    .where({ id: req.admin.empresaId })
+    .first('controla_refrigerio');
 
   const workbook = new ExcelJS.Workbook();
 
@@ -382,36 +399,42 @@ async function exportarExcel(req, res) {
   }
 
   // ---- Hoja 2: Detalle (formato solicitado) ----
-  const hojaDetalle = workbook.addWorksheet('Detalle');
-  hojaDetalle.columns = [
-    { key: 'fecha', width: 12 },
-    { key: 'dni', width: 12 },
-    { key: 'nombre', width: 28 },
-    { key: 'horaEntrada', width: 16 },
-    { key: 'tardanza', width: 12 },
-    { key: 'horaSalida', width: 16 },
-    { key: 'extra25', width: 16 },
-    { key: 'extra35', width: 16 },
-    { key: 'observaciones', width: 32 }
+  // Las columnas de refrigerio solo existen si la empresa lo controla; sin
+  // ellas el formato es exactamente el de la plantilla original.
+  const columnasDetalle = [
+    { ancho: 12, titulo: 'Fecha', valor: (f) => formatoFechaDDMMYYYY(f.fecha), azul: true },
+    { ancho: 12, titulo: 'DNI', valor: (f) => f.worker.dni, azul: true },
+    { ancho: 28, titulo: 'Nombre', valor: (f) => f.worker.nombre, azul: true },
+    { ancho: 16, titulo: 'Hora entrada (leída)', valor: (f) => formatoHoraLima(f.horaEntrada), amarillo: true },
+    { ancho: 12, titulo: 'Tardanza (min)', valor: (f) => f.tardanzaMinutos || '', total: 'tardanza' },
+    { ancho: 16, titulo: 'Hora salida (leída)', valor: (f) => formatoHoraLima(f.horaSalida), amarillo: true }
   ];
+  if (conRefrigerio) {
+    columnasDetalle.push(
+      { ancho: 16, titulo: 'Salida refrigerio', valor: (f) => formatoHoraLima(f.refrigerioSalida), amarillo: true },
+      { ancho: 16, titulo: 'Regreso refrigerio', valor: (f) => formatoHoraLima(f.refrigerioRegreso), amarillo: true }
+    );
+  }
+  columnasDetalle.push(
+    { ancho: 16, titulo: 'Horas extra 25%', valor: (f) => f.horasExtra25 || '', total: 'extra25' },
+    { ancho: 16, titulo: 'Horas extra 35%', valor: (f) => f.horasExtra35 || '', total: 'extra35' },
+    {
+      ancho: 32,
+      titulo: 'Observaciones (Colocar si hubo inasistencia)',
+      valor: (f) => (f.inasistencia ? 'Inasistencia' : '')
+    }
+  );
 
-  hojaDetalle.mergeCells('A1:I1');
+  const hojaDetalle = workbook.addWorksheet('Detalle');
+  hojaDetalle.columns = columnasDetalle.map((c, i) => ({ key: 'c' + i, width: c.ancho }));
+
+  const ultimaColumna = String.fromCharCode(64 + columnasDetalle.length);
+  hojaDetalle.mergeCells(`A1:${ultimaColumna}1`);
   const celdaTitulo = hojaDetalle.getCell('A1');
   celdaTitulo.value = `Control de asistencia — General (${empresaNombre})`;
   celdaTitulo.font = { bold: true, size: 13 };
 
-  const encabezados = [
-    'Fecha',
-    'DNI',
-    'Nombre',
-    'Hora entrada (leída)',
-    'Tardanza (min)',
-    'Hora salida (leída)',
-    'Horas extra 25%',
-    'Horas extra 35%',
-    'Observaciones (Colocar si hubo inasistencia)'
-  ];
-  const filaEncabezado = hojaDetalle.addRow(encabezados);
+  const filaEncabezado = hojaDetalle.addRow(columnasDetalle.map((c) => c.titulo));
   filaEncabezado.eachCell((celda) => {
     celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
     celda.font = { color: { argb: 'FFFFFFFF' }, bold: true };
@@ -419,49 +442,35 @@ async function exportarExcel(req, res) {
     celda.border = BORDES_CELDA;
   });
 
-  let totalTardanza = 0;
-  let totalExtra25 = 0;
-  let totalExtra35 = 0;
+  const totales = { tardanza: 0, extra25: 0, extra35: 0 };
 
   filas
     .sort((a, b) => (a.fecha === b.fecha ? a.worker.nombre.localeCompare(b.worker.nombre) : a.fecha < b.fecha ? -1 : 1))
     .forEach((f) => {
-      totalTardanza += f.tardanzaMinutos || 0;
-      totalExtra25 += f.horasExtra25;
-      totalExtra35 += f.horasExtra35;
+      totales.tardanza += f.tardanzaMinutos || 0;
+      totales.extra25 += f.horasExtra25;
+      totales.extra35 += f.horasExtra35;
 
-      const fila = hojaDetalle.addRow([
-        formatoFechaDDMMYYYY(f.fecha),
-        f.worker.dni,
-        f.worker.nombre,
-        formatoHoraLima(f.horaEntrada),
-        f.tardanzaMinutos || '',
-        formatoHoraLima(f.horaSalida),
-        f.horasExtra25 || '',
-        f.horasExtra35 || '',
-        f.inasistencia ? 'Inasistencia' : ''
-      ]);
+      const fila = hojaDetalle.addRow(columnasDetalle.map((c) => c.valor(f)));
       fila.eachCell((celda) => {
         celda.border = BORDES_CELDA;
       });
-      fila.getCell(1).font = { color: { argb: 'FF1155CC' } };
-      fila.getCell(2).font = { color: { argb: 'FF1155CC' } };
-      fila.getCell(3).font = { color: { argb: 'FF1155CC' } };
-      fila.getCell(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMARILLO_LEIDA } };
-      fila.getCell(6).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMARILLO_LEIDA } };
+      columnasDetalle.forEach((c, i) => {
+        const celda = fila.getCell(i + 1);
+        if (c.azul) celda.font = { color: { argb: 'FF1155CC' } };
+        if (c.amarillo) celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AMARILLO_LEIDA } };
+      });
     });
 
-  const filaTotales = hojaDetalle.addRow([
-    'Totales',
-    '',
-    '',
-    '',
-    Number(totalTardanza.toFixed(0)),
-    '',
-    Number(totalExtra25.toFixed(2)),
-    Number(totalExtra35.toFixed(2)),
-    ''
-  ]);
+  const filaTotales = hojaDetalle.addRow(
+    columnasDetalle.map((c, i) => {
+      if (i === 0) return 'Totales';
+      if (c.total === 'tardanza') return Number(totales.tardanza.toFixed(0));
+      if (c.total === 'extra25') return Number(totales.extra25.toFixed(2));
+      if (c.total === 'extra35') return Number(totales.extra35.toFixed(2));
+      return '';
+    })
+  );
   filaTotales.eachCell((celda) => {
     celda.font = { bold: true };
     celda.border = BORDES_CELDA;

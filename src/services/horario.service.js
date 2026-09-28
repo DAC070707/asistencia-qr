@@ -359,6 +359,8 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, su
           fecha,
           horaEntrada: registro.creado_en,
           horaSalida: registro.hora_salida,
+          refrigerioSalida: registro.refrigerio_salida_en,
+          refrigerioRegreso: registro.refrigerio_regreso_en,
           tardanzaMinutos: entrada.estado === 'tarde' ? entrada.minutos : null,
           horasExtra25: Number(registro.horas_extra_25) || 0,
           horasExtra35: Number(registro.horas_extra_35) || 0,

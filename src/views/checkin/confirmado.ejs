@@ -13,9 +13,9 @@
     <div class="tarjeta" style="margin-top: 40px; text-align:center;">
       <div class="estado-icono"><%= yaExistia ? 'ℹ️' : '✅' %></div>
       <h1 class="<%= yaExistia ? '' : 'exito' %>">
-        <%= yaExistia ? `Ya habías marcado tu ${tipo}` : `${tipo === 'entrada' ? 'Entrada' : 'Salida'} registrada` %>
+        <%= yaExistia ? `Ya habías marcado tu ${tipo}` : (tipo === 'entrada' ? 'Entrada registrada' : tipo === 'salida' ? 'Salida registrada' : tipo === 'salida a refrigerio' ? 'Salida a refrigerio registrada' : 'Regreso de refrigerio registrado') %>
       </h1>
-      <p class="subtitulo">Hola <strong><%= nombre %></strong>, tu <%= tipo %> de hoy quedó registrada a las <strong><%= hora %></strong>.</p>
+      <p class="subtitulo">Hola <strong><%= nombre %></strong>, se registró tu <%= tipo %> de hoy a las <strong><%= hora %></strong>.</p>
       <% if (estadoMarcacion) { %>
         <span class="badge badge-<%= estadoMarcacion %>">
           <% if (estadoMarcacion === 'a_tiempo') { %>A tiempo

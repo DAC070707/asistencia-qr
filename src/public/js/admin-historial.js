@@ -70,6 +70,7 @@ function badgeMarcacion(estado, minutos) {
 
 const desdeInput = document.getElementById('desde-input');
 const hastaInput = document.getElementById('hasta-input');
+let conRefrigerio = false;
 const workerInput = document.getElementById('worker-input');
 const sucursalInput = document.getElementById('sucursal-input');
 const tbody = document.getElementById('tabla-historial');
@@ -97,6 +98,21 @@ async function cargarSucursales() {
   document.getElementById('sucursal-filtro').hidden = false;
 }
 
+async function cargarConfigRefrigerio() {
+  const resp = await fetch('/api/admin/empresa/configuracion');
+  if (!resp.ok) return;
+  conRefrigerio = Boolean((await resp.json()).controlaRefrigerio);
+  document.querySelectorAll('.col-refrigerio').forEach((th) => {
+    th.hidden = !conRefrigerio;
+  });
+}
+
+function celdasRefrigerioHtml(r) {
+  if (!conRefrigerio) return '';
+  const fmt = (v) => (v ? formatearHora(v) : '—');
+  return `<td>${fmt(r.refrigerio_salida_en)}</td><td>${fmt(r.refrigerio_regreso_en)}</td>`;
+}
+
 function paramsActuales() {
   const params = new URLSearchParams({ desde: desdeInput.value, hasta: hastaInput.value });
   if (workerInput.value) params.set('worker_id', workerInput.value);
@@ -121,6 +137,7 @@ function filaHtml(r) {
       <td>${Number(r.horas_extra_25).toFixed(2)}</td>
       <td>${Number(r.horas_extra_35).toFixed(2)}</td>
       <td class="celda-estado">${tieneExtra ? badgeEstado(r.horas_extra_estado) : '—'}</td>
+      ${celdasRefrigerioHtml(r)}
       <td>${r.entrada_distancia_m === null || r.entrada_distancia_m === undefined ? '—' : `${Number(r.entrada_distancia_m).toFixed(0)} m`}</td>
       <td>${r.sucursal_nombre ? escapeHtml(r.sucursal_nombre) : '—'}</td>
       <td class="celda-acciones">
@@ -154,6 +171,7 @@ function filaEdicionHtml(fila) {
     <td><input type="datetime-local" class="input-salida" value="${salida}" /></td>
     <td colspan="3"></td>
     <td></td>
+    ${conRefrigerio ? '<td></td><td></td>' : ''}
     <td></td>
     <td></td>
     <td class="celda-acciones">
@@ -166,18 +184,18 @@ async function buscar() {
   if (!desdeInput.value || !hastaInput.value) return;
 
   actualizarExportLink();
-  tbody.innerHTML = '<tr><td colspan="12">Cargando...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="14">Cargando...</td></tr>';
 
   const resp = await fetch(`/api/admin/attendance?${paramsActuales().toString()}`);
   if (!resp.ok) {
     const data = await resp.json().catch(() => ({}));
-    tbody.innerHTML = `<tr><td colspan="12">${data.error || 'Error al cargar'}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="14">${data.error || 'Error al cargar'}</td></tr>`;
     return;
   }
   const registros = await resp.json();
 
   if (registros.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="12">Sin registros para este filtro</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="14">Sin registros para este filtro</td></tr>';
     return;
   }
 
@@ -234,4 +252,4 @@ desdeInput.value = hoyLimaISO();
 hastaInput.value = hoyLimaISO();
 cargarWorkers();
 cargarSucursales();
-buscar();
+cargarConfigRefrigerio().then(buscar);

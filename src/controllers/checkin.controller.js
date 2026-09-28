@@ -50,6 +50,7 @@ async function datosParaVistaMarcar(worker, codigo, registro, error) {
     .where({ empresa_id: codigo.empresa_id, activo: true })
     .count('* as count')
     .first();
+  const empresa = await db('empresas').where({ id: codigo.empresa_id }).first('controla_refrigerio');
   return {
     token: codigo.token,
     nombre: worker.nombre,
@@ -57,6 +58,13 @@ async function datosParaVistaMarcar(worker, codigo, registro, error) {
     horaEntrada: registro ? horaLima(new Date(registro.creado_en)) : null,
     horaSalida: registro?.hora_salida ? horaLima(new Date(registro.hora_salida)) : null,
     geolocalizacionActiva: geo.activa,
+    controlaRefrigerio: Boolean(empresa?.controla_refrigerio),
+    horaRefrigerioSalida: registro?.refrigerio_salida_en
+      ? horaLima(new Date(registro.refrigerio_salida_en))
+      : null,
+    horaRefrigerioRegreso: registro?.refrigerio_regreso_en
+      ? horaLima(new Date(registro.refrigerio_regreso_en))
+      : null,
     sucursalNombre: Number(count) > 1 ? geo.nombre : null,
     error: error || null
   };
@@ -236,6 +244,47 @@ async function marcar(req, res) {
       hora: horaLima(new Date(resultado.registro.hora_salida)),
       estadoMarcacion: clasificacion.estado,
       minutosMarcacion: clasificacion.minutos,
+      yaExistia: resultado.yaExistia
+    });
+  }
+
+  if (accion === 'refrigerio_salida' || accion === 'refrigerio_regreso') {
+    const empresa = await db('empresas').where({ id: codigo.empresa_id }).first('controla_refrigerio');
+    const registroActual = await attendanceService.buscarAsistenciaDeHoy(worker.id);
+    if (!empresa?.controla_refrigerio) {
+      return res.render(
+        'checkin/marcar',
+        await datosParaVistaMarcar(worker, codigo, registroActual, 'Tu empresa no controla el refrigerio.')
+      );
+    }
+
+    const esSalida = accion === 'refrigerio_salida';
+    const resultado = esSalida
+      ? await attendanceService.marcarRefrigerioSalida({ workerId: worker.id })
+      : await attendanceService.marcarRefrigerioRegreso({ workerId: worker.id });
+
+    const mensajesError = {
+      sin_entrada: 'Primero marca tu entrada de hoy.',
+      jornada_cerrada: 'Ya marcaste tu salida de hoy.',
+      sin_salida_refrigerio: 'Primero marca tu salida a refrigerio.'
+    };
+    if (resultado.error) {
+      return res.render(
+        'checkin/marcar',
+        await datosParaVistaMarcar(worker, codigo, registroActual, mensajesError[resultado.error])
+      );
+    }
+
+    const hora = esSalida
+      ? resultado.registro.refrigerio_salida_en
+      : resultado.registro.refrigerio_regreso_en;
+    return res.render('checkin/confirmado', {
+      nombre: worker.nombre,
+      logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
+      tipo: esSalida ? 'salida a refrigerio' : 'regreso de refrigerio',
+      hora: horaLima(new Date(hora)),
+      estadoMarcacion: null,
+      minutosMarcacion: null,
       yaExistia: resultado.yaExistia
     });
   }
