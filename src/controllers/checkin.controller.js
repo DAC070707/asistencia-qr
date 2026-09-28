@@ -7,6 +7,7 @@ const { horaLima, hoyLima, primerDiaMesLima } = require('../utils/limaDate');
 const horarioService = require('../services/horario.service');
 const { clasificarEntrada, clasificarSalida } = require('../utils/overtime');
 const { calcularDistanciaMetros } = require('../utils/geo');
+const intentosService = require('../services/intentos.service');
 
 const DEVICE_COOKIE_OPTS = {
   httpOnly: true,
@@ -58,6 +59,7 @@ async function datosParaVistaMarcar(worker, codigo, registro, error) {
     horaEntrada: registro ? horaLima(new Date(registro.creado_en)) : null,
     horaSalida: registro?.hora_salida ? horaLima(new Date(registro.hora_salida)) : null,
     geolocalizacionActiva: geo.activa,
+    radioMetros: geo.radioMetros,
     controlaRefrigerio: Boolean(empresa?.controla_refrigerio),
     horaRefrigerioSalida: registro?.refrigerio_salida_en
       ? horaLima(new Date(registro.refrigerio_salida_en))
@@ -70,10 +72,16 @@ async function datosParaVistaMarcar(worker, codigo, registro, error) {
   };
 }
 
+// Maximo margen de error del GPS (metros) que se descuenta de la distancia.
+// Asi una lectura muy imprecisa no habilita a marcar desde lejos.
+const TOPE_MARGEN_GPS_M = 50;
+
 // Valida la ubicacion enviada al marcar contra la de la sucursal del QR
 // escaneado (si tiene la verificacion activa). Devuelve { ok:true, geo } con
-// lat/lng/distancia lista para persistir, o { ok:false, mensaje } sin tocar
-// la base de datos.
+// lat/lng/distancia/precision lista para persistir, o { ok:false, mensaje,
+// motivo, distanciaMetros?, precisionMetros? } sin tocar la base de datos.
+// Se acepta si distancia - min(precision, TOPE) <= radio: el celular reporta
+// su margen de error y dentro de edificios suele ser de 30-80 m.
 async function validarGeolocalizacion(sucursalId, body) {
   const config = await horarioService.obtenerConfigUbicacion(sucursalId);
   if (!config.activa) {
@@ -85,19 +93,31 @@ async function validarGeolocalizacion(sucursalId, body) {
   if (body.lat === undefined || body.lng === undefined || !Number.isFinite(lat) || !Number.isFinite(lng)) {
     return {
       ok: false,
+      motivo: 'sin_ubicacion',
       mensaje: 'No pudimos verificar tu ubicación. Activa el permiso de ubicación en tu navegador e intenta de nuevo.'
     };
   }
 
+  const precision = intentosService.numeroONull(body.precision);
+  const precisionMetros = precision !== null && precision >= 0 ? Math.round(precision * 100) / 100 : null;
   const distanciaMetros = calcularDistanciaMetros(config.lat, config.lng, lat, lng);
-  if (distanciaMetros > config.radioMetros) {
+  const margen = precisionMetros === null ? 0 : Math.min(precisionMetros, TOPE_MARGEN_GPS_M);
+
+  if (distanciaMetros - margen > config.radioMetros) {
+    const detallePrecision = precisionMetros === null ? '' : ` (precisión ±${Math.round(precisionMetros)}m)`;
     return {
       ok: false,
-      mensaje: `Estás fuera del rango permitido para marcar asistencia (a ${Math.round(distanciaMetros)}m, máximo ${config.radioMetros}m).`
+      motivo: 'fuera_de_rango',
+      distanciaMetros,
+      precisionMetros,
+      mensaje: `Estás fuera del rango permitido para marcar asistencia: a ${Math.round(distanciaMetros)}m${detallePrecision}, máximo ${config.radioMetros}m. Si estás dentro del local, acércate a una ventana o a la puerta, activa el Wi-Fi y vuelve a intentar.`
     };
   }
 
-  return { ok: true, geo: { lat, lng, distanciaMetros: Math.round(distanciaMetros * 100) / 100 } };
+  return {
+    ok: true,
+    geo: { lat, lng, distanciaMetros: Math.round(distanciaMetros * 100) / 100, precisionMetros }
+  };
 }
 
 async function mostrarCheckin(req, res) {
@@ -192,6 +212,16 @@ async function marcar(req, res) {
 
   const geoResultado = await validarGeolocalizacion(codigo.sucursal_id, req.body);
   if (!geoResultado.ok) {
+    await intentosService.registrar({
+      empresaId: codigo.empresa_id,
+      sucursalId: codigo.sucursal_id,
+      workerId: worker.id,
+      accion,
+      motivo: geoResultado.motivo,
+      distanciaMetros: geoResultado.distanciaMetros,
+      precisionMetros: geoResultado.precisionMetros,
+      userAgent: req.get('user-agent')
+    });
     const registroActual = await attendanceService.buscarAsistenciaDeHoy(worker.id);
     return res.render(
       'checkin/marcar',
@@ -292,6 +322,31 @@ async function marcar(req, res) {
   return res.status(400).send('Accion invalida');
 }
 
+// El navegador del trabajador reporta que no pudo obtener la ubicacion
+// (permiso denegado, sin senal, tiempo agotado). Solo sirve para diagnostico
+// en Configuracion; no afecta ninguna marcacion.
+const MOTIVOS_DEL_NAVEGADOR = ['sin_permiso', 'sin_senal', 'tiempo_agotado', 'navegador_sin_soporte'];
+
+async function registrarIntentoFallido(req, res) {
+  const codigo = await dailyCodeService.validarToken(req.params.token);
+  if (!codigo) return res.status(204).end();
+
+  const worker = await workerDesdeCookie(req, codigo.empresa_id);
+  const motivo = String(req.body?.motivo || '');
+  if (!worker || !MOTIVOS_DEL_NAVEGADOR.includes(motivo)) return res.status(204).end();
+
+  await intentosService.registrar({
+    empresaId: codigo.empresa_id,
+    sucursalId: codigo.sucursal_id,
+    workerId: worker.id,
+    accion: req.body?.accion,
+    motivo,
+    precisionMetros: req.body?.precision,
+    userAgent: req.get('user-agent')
+  });
+  return res.status(204).end();
+}
+
 async function historialWorker(req, res) {
   const worker = await workerDesdeCookie(req);
   if (!worker) {
@@ -354,4 +409,4 @@ async function historialWorker(req, res) {
   });
 }
 
-module.exports = { mostrarCheckin, identificar, marcar, historialWorker };
+module.exports = { mostrarCheckin, identificar, marcar, registrarIntentoFallido, historialWorker };

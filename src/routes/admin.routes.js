@@ -106,6 +106,11 @@ router.patch(
   requireAdminAuth,
   asyncHandler(adminController.actualizarSucursal)
 );
+router.get(
+  '/api/admin/intentos-rechazados',
+  requireAdminAuth,
+  asyncHandler(adminController.listarIntentosRechazados)
+);
 
 // Horario del trabajador (semanal o rotativo)
 router.get(

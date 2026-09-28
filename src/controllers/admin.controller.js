@@ -4,6 +4,8 @@ const qrImageService = require('../services/qrImage.service');
 const attendanceService = require('../services/attendance.service');
 const horarioService = require('../services/horario.service');
 const sucursalService = require('../services/sucursal.service');
+const intentosService = require('../services/intentos.service');
+const env = require('../config/env');
 const db = require('../config/db');
 const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
 
@@ -218,8 +220,15 @@ async function paginaConfiguracion(req, res) {
   res.render('admin/configuracion', {
     admin: req.admin,
     empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
-    logoEmpresaUrl: `/logo/${req.admin.empresaId}`
+    logoEmpresaUrl: `/logo/${req.admin.empresaId}`,
+    googleMapsApiKey: env.googleMapsApiKey
   });
+}
+
+// Intentos de marcacion rechazados por ubicacion (ultimos 7 dias) de la
+// propia empresa, para diagnosticar quien tiene problemas al marcar.
+async function listarIntentosRechazados(req, res) {
+  res.json(await intentosService.listarRecientes(req.admin.empresaId, 7));
 }
 
 // Resuelve la sucursal del parametro sucursal_id (query o body); sin parametro
@@ -784,6 +793,7 @@ module.exports = {
   listarSucursales,
   crearSucursal,
   actualizarSucursal,
+  listarIntentosRechazados,
   obtenerHorarioTrabajador,
   guardarHorarioTrabajador,
   listarTurnos,

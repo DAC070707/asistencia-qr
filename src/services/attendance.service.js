@@ -72,7 +72,8 @@ async function marcarEntrada({ workerId, dailyCodeId, empresaId, sucursalId, geo
       fecha,
       entrada_lat: geo?.lat ?? null,
       entrada_lng: geo?.lng ?? null,
-      entrada_distancia_m: geo?.distanciaMetros ?? null
+      entrada_distancia_m: geo?.distanciaMetros ?? null,
+      entrada_precision_m: geo?.precisionMetros ?? null
     })
     .returning('*');
   return { registro: creado, yaExistia: false };
@@ -105,7 +106,8 @@ async function marcarSalida({ workerId, geo }) {
       horas_extra_35: extra35,
       salida_lat: geo?.lat ?? null,
       salida_lng: geo?.lng ?? null,
-      salida_distancia_m: geo?.distanciaMetros ?? null
+      salida_distancia_m: geo?.distanciaMetros ?? null,
+      salida_precision_m: geo?.precisionMetros ?? null
     })
     .returning('*');
   return { registro: actualizado, yaExistia: false };

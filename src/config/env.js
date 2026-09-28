@@ -14,5 +14,7 @@ module.exports = {
   jwtSecret: process.env.JWT_SECRET,
   timezone: 'America/Lima',
   adminEmail: process.env.ADMIN_EMAIL,
-  adminPassword: process.env.ADMIN_PASSWORD
+  adminPassword: process.env.ADMIN_PASSWORD,
+  // Opcional: sin ella, Configuracion funciona sin el mapa de Google.
+  googleMapsApiKey: process.env.GOOGLE_MAPS_API_KEY || null
 };

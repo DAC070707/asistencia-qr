@@ -69,8 +69,13 @@
           <h2 style="margin:0;">Sucursales</h2>
         </div>
         <p class="card-sub">
-          Cada sucursal tiene su propio código QR, su propia ubicación y sus trabajadores. Para guardar la ubicación de una sucursal, párate en ese local y usa el botón "Usar mi ubicación actual".
-          <strong>Después de llenar la ubicación, marca la casilla y dale Guardar para que la verificación quede activa.</strong>
+          Cada sucursal tiene su propio código QR, su propia ubicación y sus trabajadores.
+          <% if (googleMapsApiKey) { %>
+            Busca la dirección en el mapa y arrastra el pin hasta la puerta exacta del local (puedes cambiar a vista satélite). El círculo muestra el radio en el que se puede marcar.
+          <% } else { %>
+            Para guardar la ubicación de una sucursal, párate en ese local y usa el botón "Usar mi ubicación actual".
+          <% } %>
+          <strong>Después de fijar la ubicación, marca la casilla y dale Guardar para que la verificación quede activa.</strong>
         </p>
 
         <div id="lista-sucursales"></div>
@@ -81,9 +86,25 @@
         </div>
         <div id="sucursales-error"></div>
       </div>
+
+      <div class="card">
+        <h2>Intentos rechazados por ubicación</h2>
+        <p class="card-sub">Últimos 7 días. Aquí ves qué trabajadores no pudieron marcar y por qué, para ayudarlos (permiso bloqueado, sin señal, fuera del radio).</p>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr><th>Fecha y hora</th><th>Trabajador</th><th>Sucursal</th><th>Acción</th><th>Motivo</th><th>Distancia</th><th>Precisión</th><th>Teléfono</th></tr>
+            </thead>
+            <tbody id="tabla-intentos">
+              <tr><td colspan="8">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </main>
   </div>
 
+  <script>window.DANA_GOOGLE_MAPS_KEY = <%- JSON.stringify(googleMapsApiKey || null) %>;</script>
   <script src="/js/admin-configuracion.js"></script>
 </body>
 </html>

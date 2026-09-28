@@ -36,9 +36,11 @@ document.getElementById('logo-btn').addEventListener('click', async () => {
 
 function escapeHtml(str) {
   const div = document.createElement('div');
-  div.textContent = str;
+  div.textContent = str ?? '';
   return div.innerHTML;
 }
+
+const GOOGLE_MAPS_KEY = window.DANA_GOOGLE_MAPS_KEY || null;
 
 async function cargarConfiguracion() {
   const resp = await fetch('/api/admin/empresa/configuracion');
@@ -122,6 +124,16 @@ function sucursalHtml(s) {
         <input type="text" class="suc-direccion" value="${escapeHtml(s.direccion)}" placeholder="Av. Ejemplo 123, distrito" style="margin:0;" />
       </label>
 
+      ${
+        GOOGLE_MAPS_KEY
+          ? `<div class="suc-mapa-wrap">
+               <div class="suc-buscador"></div>
+               <div class="suc-mapa"></div>
+               <p class="card-sub" style="margin:6px 0 0;">Arrastra el pin o toca el mapa para fijar la puerta del local.</p>
+             </div>`
+          : ''
+      }
+
       <div class="fila-acciones">
         <button type="button" class="secundario suc-usar-btn">📍 Usar mi ubicación actual</button>
         <label style="margin:0;">Latitud
@@ -151,6 +163,191 @@ async function cargarSucursales() {
   if (!resp.ok) return;
   const sucursales = await resp.json();
   listaSucursales.innerHTML = sucursales.map(sucursalHtml).join('');
+  if (GOOGLE_MAPS_KEY) {
+    listaSucursales.querySelectorAll('.sucursal-bloque').forEach((bloque) => {
+      iniciarMapaSucursal(bloque).catch((err) => {
+        console.error('No se pudo cargar el mapa:', err);
+        const wrap = bloque.querySelector('.suc-mapa-wrap');
+        if (wrap) wrap.innerHTML = '<div class="error">No se pudo cargar el mapa de Google. Puedes usar latitud y longitud.</div>';
+      });
+    });
+  }
+}
+
+// ---------- Mapa de Google (solo si hay API key) ----------
+
+const CENTRO_LIMA = { lat: -12.0464, lng: -77.0428 };
+let googleMapsPromesa = null;
+
+function cargarGoogleMaps() {
+  if (googleMapsPromesa) return googleMapsPromesa;
+  googleMapsPromesa = new Promise((resolve, reject) => {
+    window.__danaMapsListo = () => resolve(window.google);
+    const script = document.createElement('script');
+    script.src =
+      'https://maps.googleapis.com/maps/api/js?key=' +
+      encodeURIComponent(GOOGLE_MAPS_KEY) +
+      '&v=weekly&language=es&region=PE&loading=async&callback=__danaMapsListo';
+    script.async = true;
+    script.onerror = () => reject(new Error('No se pudo descargar Google Maps'));
+    document.head.appendChild(script);
+  });
+  return googleMapsPromesa;
+}
+
+async function iniciarMapaSucursal(bloque) {
+  const google = await cargarGoogleMaps();
+  const { Map, Circle } = await google.maps.importLibrary('maps');
+  const { AdvancedMarkerElement } = await google.maps.importLibrary('marker');
+
+  const latInput = bloque.querySelector('.suc-lat');
+  const lngInput = bloque.querySelector('.suc-lng');
+  const radioInput = bloque.querySelector('.suc-radio');
+  const direccionInput = bloque.querySelector('.suc-direccion');
+
+  const tieneUbicacion = latInput.value !== '' && lngInput.value !== '';
+  const posicionInicial = tieneUbicacion
+    ? { lat: Number(latInput.value), lng: Number(lngInput.value) }
+    : CENTRO_LIMA;
+
+  const mapa = new Map(bloque.querySelector('.suc-mapa'), {
+    center: posicionInicial,
+    zoom: tieneUbicacion ? 18 : 12,
+    mapId: 'DEMO_MAP_ID',
+    mapTypeControl: true,
+    streetViewControl: false,
+    fullscreenControl: true,
+    gestureHandling: 'cooperative'
+  });
+
+  const pin = new AdvancedMarkerElement({
+    map: tieneUbicacion ? mapa : null,
+    position: posicionInicial,
+    gmpDraggable: true,
+    title: 'Puerta del local'
+  });
+
+  const circulo = new Circle({
+    map: tieneUbicacion ? mapa : null,
+    center: posicionInicial,
+    radius: Number(radioInput.value) || 50,
+    strokeColor: '#2f6fed',
+    strokeOpacity: 0.9,
+    strokeWeight: 2,
+    fillColor: '#2f6fed',
+    fillOpacity: 0.12,
+    clickable: false
+  });
+
+  function moverA(pos, { centrar = false, zoom = null } = {}) {
+    const lat = typeof pos.lat === 'function' ? pos.lat() : pos.lat;
+    const lng = typeof pos.lng === 'function' ? pos.lng() : pos.lng;
+    latInput.value = lat.toFixed(7);
+    lngInput.value = lng.toFixed(7);
+    pin.position = { lat, lng };
+    pin.map = mapa;
+    circulo.setCenter({ lat, lng });
+    circulo.setMap(mapa);
+    if (centrar) mapa.panTo({ lat, lng });
+    if (zoom) mapa.setZoom(zoom);
+  }
+
+  pin.addListener('dragend', () => moverA(pin.position));
+  mapa.addListener('click', (e) => moverA(e.latLng));
+
+  function desdeCampos() {
+    const lat = Number(latInput.value);
+    const lng = Number(lngInput.value);
+    if (latInput.value === '' || lngInput.value === '' || !Number.isFinite(lat) || !Number.isFinite(lng)) return;
+    moverA({ lat, lng }, { centrar: true });
+  }
+  latInput.addEventListener('change', desdeCampos);
+  lngInput.addEventListener('change', desdeCampos);
+  radioInput.addEventListener('input', () => circulo.setRadius(Number(radioInput.value) || 0));
+
+  // "Usar mi ubicacion actual" avisa a traves de este evento para mover el pin.
+  bloque.addEventListener('dana:ubicacion', () => desdeCampos());
+
+  // Buscador de direcciones (Places API New), limitado a Peru.
+  try {
+    const { PlaceAutocompleteElement } = await google.maps.importLibrary('places');
+    const buscador = new PlaceAutocompleteElement({ includedRegionCodes: ['pe'] });
+    buscador.setAttribute('placeholder', 'Buscar dirección del local…');
+    bloque.querySelector('.suc-buscador').appendChild(buscador);
+
+    async function alElegir(place) {
+      if (!place) return;
+      await place.fetchFields({ fields: ['location', 'formattedAddress', 'displayName'] });
+      if (!place.location) return;
+      moverA(place.location, { centrar: true, zoom: 19 });
+      if (place.formattedAddress) direccionInput.value = place.formattedAddress;
+    }
+    buscador.addEventListener('gmp-select', (e) => alElegir(e.placePrediction?.toPlace()));
+    buscador.addEventListener('gmp-placeselect', (e) => alElegir(e.place));
+  } catch (err) {
+    console.error('Buscador de direcciones no disponible:', err);
+  }
+}
+
+// ---------- Intentos rechazados ----------
+
+const MOTIVOS_INTENTO = {
+  sin_permiso: 'Permiso de ubicación bloqueado',
+  sin_senal: 'Sin señal de ubicación',
+  tiempo_agotado: 'Tardó demasiado en ubicarse',
+  fuera_de_rango: 'Fuera del radio',
+  sin_ubicacion: 'No envió ubicación',
+  navegador_sin_soporte: 'Navegador sin ubicación'
+};
+const ACCIONES_INTENTO = {
+  entrada: 'Entrada',
+  salida: 'Salida',
+  refrigerio_salida: 'Salida refrigerio',
+  refrigerio_regreso: 'Regreso refrigerio'
+};
+const DISPOSITIVOS = { iphone: 'iPhone', android: 'Android', otro: 'Otro' };
+
+function fechaHoraLima(valor) {
+  return new Date(valor).toLocaleString('es-PE', {
+    timeZone: 'America/Lima',
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
+function metros(valor) {
+  return valor === null || valor === undefined ? '—' : `${Math.round(Number(valor))} m`;
+}
+
+async function cargarIntentos() {
+  const tbody = document.getElementById('tabla-intentos');
+  const resp = await fetch('/api/admin/intentos-rechazados');
+  if (!resp.ok) {
+    tbody.innerHTML = '<tr><td colspan="8">No se pudo cargar.</td></tr>';
+    return;
+  }
+  const intentos = await resp.json();
+  if (intentos.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8">Sin intentos rechazados en los últimos 7 días.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = intentos
+    .map(
+      (i) => `
+      <tr>
+        <td>${fechaHoraLima(i.creado_en)}</td>
+        <td>${escapeHtml(i.worker_nombre || '—')}${i.worker_dni ? `<br><span class="card-sub" style="margin:0;">${escapeHtml(i.worker_dni)}</span>` : ''}</td>
+        <td>${escapeHtml(i.sucursal_nombre || '—')}</td>
+        <td>${escapeHtml(ACCIONES_INTENTO[i.accion] || i.accion || '—')}</td>
+        <td>${escapeHtml(MOTIVOS_INTENTO[i.motivo] || i.motivo)}</td>
+        <td>${metros(i.distancia_m)}</td>
+        <td>${i.precision_m === null || i.precision_m === undefined ? '—' : `±${Math.round(Number(i.precision_m))} m`}</td>
+        <td>${escapeHtml(DISPOSITIVOS[i.dispositivo] || '—')}</td>
+      </tr>`
+    )
+    .join('');
 }
 
 listaSucursales.addEventListener('click', (e) => {
@@ -172,8 +369,14 @@ listaSucursales.addEventListener('click', (e) => {
       (posicion) => {
         bloque.querySelector('.suc-lat').value = posicion.coords.latitude.toFixed(7);
         bloque.querySelector('.suc-lng').value = posicion.coords.longitude.toFixed(7);
+        bloque.dispatchEvent(new CustomEvent('dana:ubicacion'));
         btn.disabled = false;
         btn.textContent = textoOriginal;
+        const precision = Math.round(posicion.coords.accuracy);
+        errorBox.innerHTML =
+          precision > 100
+            ? `<div class="error">Ubicación imprecisa (±${precision} m): las computadoras suelen ubicarse por internet y pueden errar por cientos de metros. ${GOOGLE_MAPS_KEY ? 'Ajusta el pin en el mapa hasta la puerta del local' : 'Hazlo desde un celular parado en el local'} antes de guardar.</div>`
+            : `<p class="card-sub" style="margin:6px 0 0;">Ubicación obtenida con precisión de ±${precision} m.</p>`;
       },
       () => {
         btn.disabled = false;
@@ -256,3 +459,4 @@ document.getElementById('logout-link').addEventListener('click', async (e) => {
 
 cargarConfiguracion();
 cargarSucursales();
+cargarIntentos();
