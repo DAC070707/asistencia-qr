@@ -15,14 +15,23 @@ const COLUMNAS_ASISTENCIA = [
   'attendance.horas_extra_35',
   'attendance.horas_extra_estado',
   'attendance.editado_en',
-  'attendance.entrada_distancia_m'
+  'attendance.entrada_distancia_m',
+  'attendance.sucursal_id',
+  'sucursales.nombre as sucursal_nombre'
 ];
 
 async function buscarOCrearWorker({ dni, nombre, empresaId }) {
   const existente = await db('workers').where({ dni, empresa_id: empresaId }).first();
   if (existente) return existente;
 
-  const [creado] = await db('workers').insert({ dni, nombre, empresa_id: empresaId }).returning('*');
+  // Empresa con una sola sucursal: el trabajador nuevo queda en ella. Con 2 o
+  // mas, queda sin sucursal hasta que el admin se la asigne.
+  const sucursales = await db('sucursales').where({ empresa_id: empresaId, activo: true }).select('id');
+  const sucursalId = sucursales.length === 1 ? sucursales[0].id : null;
+
+  const [creado] = await db('workers')
+    .insert({ dni, nombre, empresa_id: empresaId, sucursal_id: sucursalId })
+    .returning('*');
   return creado;
 }
 
@@ -45,7 +54,7 @@ async function buscarAsistenciaDeHoy(workerId) {
   return db('attendance').where({ worker_id: workerId, fecha }).first();
 }
 
-async function marcarEntrada({ workerId, dailyCodeId, empresaId, geo }) {
+async function marcarEntrada({ workerId, dailyCodeId, empresaId, sucursalId, geo }) {
   const fecha = hoyLima();
 
   // Ya marco entrada hoy: no duplicar, devolver el registro existente.
@@ -57,6 +66,7 @@ async function marcarEntrada({ workerId, dailyCodeId, empresaId, geo }) {
       worker_id: workerId,
       daily_code_id: dailyCodeId,
       empresa_id: empresaId,
+      sucursal_id: sucursalId ?? null,
       fecha,
       entrada_lat: geo?.lat ?? null,
       entrada_lng: geo?.lng ?? null,
@@ -159,16 +169,26 @@ async function cambiarEstadoHorasExtra(id, estado, adminId, empresaId) {
   return actualizado;
 }
 
-async function listarAsistenciaDeHoy(empresaId) {
+// Asistencia de hoy de UNA sucursal: las marcaciones hechas con el QR de esa
+// sucursal. Los registros anteriores a las sucursales (sucursal_id NULL) se
+// cuentan como de la Principal.
+async function listarAsistenciaDeHoy(empresaId, sucursal) {
   const fecha = hoyLima();
-  return listarAsistencia({ empresaId, desde: fecha, hasta: fecha });
+  return listarAsistencia({
+    empresaId,
+    desde: fecha,
+    hasta: fecha,
+    marcadaEn: sucursal ? { id: sucursal.id, esPrincipal: Boolean(sucursal.esPrincipal) } : null
+  });
 }
 
 // Reporte del historial: rango de fechas (inclusive) de UNA empresa, con
-// filtro opcional por trabajador.
-async function listarAsistencia({ empresaId, desde, hasta, workerId }) {
+// filtro opcional por trabajador, por sucursal asignada al trabajador
+// (sucursalAsignadaId) o por sucursal donde se marco (marcadaEn).
+async function listarAsistencia({ empresaId, desde, hasta, workerId, sucursalAsignadaId, marcadaEn }) {
   const query = db('attendance')
     .join('workers', 'workers.id', 'attendance.worker_id')
+    .leftJoin('sucursales', 'sucursales.id', 'attendance.sucursal_id')
     .where('attendance.empresa_id', empresaId)
     .andWhere('attendance.fecha', '>=', desde)
     .andWhere('attendance.fecha', '<=', hasta)
@@ -178,6 +198,15 @@ async function listarAsistencia({ empresaId, desde, hasta, workerId }) {
 
   if (workerId) {
     query.andWhere('attendance.worker_id', workerId);
+  }
+  if (sucursalAsignadaId) {
+    query.andWhere('workers.sucursal_id', sucursalAsignadaId);
+  }
+  if (marcadaEn) {
+    query.andWhere((qb) => {
+      qb.where('attendance.sucursal_id', marcadaEn.id);
+      if (marcadaEn.esPrincipal) qb.orWhereNull('attendance.sucursal_id');
+    });
   }
 
   return query;

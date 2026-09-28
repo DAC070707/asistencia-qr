@@ -92,6 +92,7 @@ async function crearEmpresa(req, res) {
     const [admin] = await trx('admins')
       .insert({ email: emailNormalizado, password_hash: passwordHash, empresa_id: empresa.id })
       .returning('*');
+    await trx('sucursales').insert({ empresa_id: empresa.id, nombre: 'Principal' });
     return { empresa, admin };
   });
 

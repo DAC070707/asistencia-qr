@@ -262,15 +262,16 @@ async function obtenerToleranciaEmpresa(empresaId) {
   return empresa ? empresa.tolerancia_entrada_minutos : 5;
 }
 
-// Config de geolocalizacion de la empresa, usada por checkin.controller para
-// decidir si exige y valida lat/lng al marcar.
-async function obtenerConfigUbicacion(empresaId) {
-  const empresa = await db('empresas').where({ id: empresaId }).first();
+// Config de geolocalizacion de la SUCURSAL del QR escaneado, usada por
+// checkin.controller para decidir si exige y valida lat/lng al marcar.
+async function obtenerConfigUbicacion(sucursalId) {
+  const sucursal = sucursalId ? await db('sucursales').where({ id: sucursalId }).first() : null;
   return {
-    activa: empresa?.geolocalizacion_activa || false,
-    lat: empresa?.lat != null ? Number(empresa.lat) : null,
-    lng: empresa?.lng != null ? Number(empresa.lng) : null,
-    radioMetros: empresa?.radio_metros ?? 50
+    activa: sucursal?.geolocalizacion_activa || false,
+    lat: sucursal?.lat != null ? Number(sucursal.lat) : null,
+    lng: sucursal?.lng != null ? Number(sucursal.lng) : null,
+    radioMetros: sucursal?.radio_metros ?? 50,
+    nombre: sucursal?.nombre || null
   };
 }
 
@@ -313,9 +314,10 @@ async function decorarConHorario(registros, toleranciaMinutos) {
 // (o, si no la configuraron, antes de que el trabajador se creara en el
 // sistema) — evita marcar como "no vino" un dia en que todavia no era
 // trabajador de la empresa.
-async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId }) {
+async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, sucursalId }) {
   const workersQuery = db('workers').where({ empresa_id: empresaId, activo: true });
   if (workerId) workersQuery.andWhere({ id: workerId });
+  if (sucursalId) workersQuery.andWhere({ sucursal_id: sucursalId });
   const workers = await workersQuery.orderBy('nombre', 'asc');
 
   const toleranciaMinutos = await obtenerToleranciaEmpresa(empresaId);
@@ -325,6 +327,7 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId }) 
     .andWhere('fecha', '>=', desde)
     .andWhere('fecha', '<=', hasta);
   if (workerId) attendanceQuery.andWhere({ worker_id: workerId });
+  if (sucursalId) attendanceQuery.whereIn('worker_id', workers.map((w) => w.id));
   const registrosReales = await attendanceQuery;
 
   const porWorkerFecha = new Map();

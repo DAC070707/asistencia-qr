@@ -50,40 +50,20 @@
 
       <div class="card">
         <div class="card-head">
-          <h2 style="margin:0;">Ubicación del negocio</h2>
-          <span class="pill" id="ubicacion-estado-pill" style="background:var(--border); color:var(--muted);">Cargando…</span>
+          <h2 style="margin:0;">Sucursales</h2>
         </div>
         <p class="card-sub">
-          Si la activas, el trabajador debe permitir su ubicación al marcar y estar dentro del radio permitido — evita que alguien marque desde otro lugar con una foto del QR.
-          Para guardar la ubicación, párate en el negocio y usa el botón de abajo desde tu celular o laptop.
-          <strong>Después de llenar la ubicación, no olvides marcar la casilla de abajo y darle Guardar para que quede activa.</strong>
+          Cada sucursal tiene su propio código QR, su propia ubicación y sus trabajadores. Para guardar la ubicación de una sucursal, párate en ese local y usa el botón "Usar mi ubicación actual".
+          <strong>Después de llenar la ubicación, marca la casilla y dale Guardar para que la verificación quede activa.</strong>
         </p>
 
-        <label style="margin:0 0 6px;">Dirección (referencia)
-          <input type="text" id="ubicacion-direccion" placeholder="Av. Ejemplo 123, distrito" style="margin:0;" />
-        </label>
+        <div id="lista-sucursales"></div>
 
-        <div class="fila-acciones">
-          <button type="button" id="ubicacion-usar-btn" class="secundario">📍 Usar mi ubicación actual</button>
-          <label style="margin:0;">Latitud
-            <input type="number" id="ubicacion-lat" step="0.0000001" style="max-width:150px; margin:0;" />
-          </label>
-          <label style="margin:0;">Longitud
-            <input type="number" id="ubicacion-lng" step="0.0000001" style="max-width:150px; margin:0;" />
-          </label>
+        <div class="fila-acciones" style="margin-top:8px;">
+          <input type="text" id="nueva-sucursal-nombre" placeholder="Nombre de la nueva sucursal (ej. Sede Miraflores)" style="max-width:320px; margin:0;" />
+          <button id="nueva-sucursal-btn" class="secundario">+ Agregar sucursal</button>
         </div>
-
-        <div class="fila-acciones">
-          <label style="margin:0;">Radio permitido (metros)
-            <input type="number" id="ubicacion-radio" min="10" max="500" step="1" style="max-width:100px; margin:0;" />
-          </label>
-          <label style="margin:0; font-weight:500; text-transform:none; display:flex; align-items:center; gap:8px;">
-            <input type="checkbox" id="ubicacion-activa" />
-            Exigir verificación de ubicación al marcar
-          </label>
-          <button id="ubicacion-btn" class="secundario">Guardar</button>
-        </div>
-        <div id="ubicacion-error"></div>
+        <div id="sucursales-error"></div>
       </div>
     </main>
   </div>

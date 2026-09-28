@@ -7,6 +7,18 @@ function escapeHtml(str) {
 const tbody = document.getElementById('tabla-trabajadores');
 const buscarInput = document.getElementById('buscar-input');
 let workersCache = [];
+let sucursalesCache = [];
+
+function selectSucursalHtml(w) {
+  const opciones = ['<option value="">Sin asignar</option>']
+    .concat(
+      sucursalesCache.map(
+        (s) => `<option value="${s.id}" ${s.id === w.sucursal_id ? 'selected' : ''}>${escapeHtml(s.nombre)}</option>`
+      )
+    )
+    .join('');
+  return `<select class="input-sucursal" style="margin:0;">${opciones}</select>`;
+}
 
 function etiquetaHorario(tipoHorario) {
   if (tipoHorario === 'semanal') return 'Semanal';
@@ -26,7 +38,7 @@ function iniciales(nombre) {
 
 function renderWorkers(workers) {
   if (workers.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8">Sin resultados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9">Sin resultados</td></tr>';
     return;
   }
 
@@ -37,6 +49,7 @@ function renderWorkers(workers) {
           <td><div class="name-cell"><div class="name-avatar">${iniciales(w.nombre)}</div>${escapeHtml(w.nombre)}</div></td>
           <td>${escapeHtml(w.dni)}</td>
           <td>${etiquetaHorario(w.tipo_horario)} — <a href="/admin/trabajadores/${w.id}/horario">Configurar</a></td>
+          <td>${selectSucursalHtml(w)}</td>
           <td><input type="date" class="input-fecha-ingreso" value="${w.fecha_ingreso ? String(w.fecha_ingreso).slice(0, 10) : ''}" style="margin:0;" /></td>
           <td><input type="checkbox" class="input-activo" ${w.activo ? 'checked' : ''} /></td>
           <td><input type="checkbox" class="input-horas-extra" ${w.horas_extra_activas ? 'checked' : ''} /></td>
@@ -54,15 +67,19 @@ function renderWorkers(workers) {
 }
 
 async function cargarWorkers() {
+  if (sucursalesCache.length === 0) {
+    const respSuc = await fetch('/api/admin/sucursales');
+    if (respSuc.ok) sucursalesCache = await respSuc.json();
+  }
   const resp = await fetch('/api/admin/workers');
   if (!resp.ok) {
-    tbody.innerHTML = '<tr><td colspan="8">Error al cargar</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9">Error al cargar</td></tr>';
     return;
   }
   workersCache = await resp.json();
 
   if (workersCache.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8">Aún no hay trabajadores registrados</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9">Aún no hay trabajadores registrados</td></tr>';
     return;
   }
 
@@ -95,6 +112,7 @@ tbody.addEventListener('click', async (e) => {
   const activo = fila.querySelector('.input-activo').checked;
   const horasExtraActivas = fila.querySelector('.input-horas-extra').checked;
   const fechaIngreso = fila.querySelector('.input-fecha-ingreso').value || null;
+  const sucursalId = fila.querySelector('.input-sucursal').value || null;
 
   e.target.disabled = true;
   e.target.textContent = 'Guardando...';
@@ -103,7 +121,7 @@ tbody.addEventListener('click', async (e) => {
     const resp = await fetch(`/api/admin/workers/${id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ activo, horas_extra_activas: horasExtraActivas, fecha_ingreso: fechaIngreso })
+      body: JSON.stringify({ activo, horas_extra_activas: horasExtraActivas, fecha_ingreso: fechaIngreso, sucursal_id: sucursalId })
     });
     e.target.textContent = resp.ok ? 'Guardado ✓' : 'Error';
   } catch (err) {

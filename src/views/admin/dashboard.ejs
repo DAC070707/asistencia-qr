@@ -38,6 +38,10 @@
       </div>
 
       <div class="qr-hero">
+        <div id="selector-sucursal" hidden style="margin-bottom:14px;">
+          <label for="sucursal-select" style="margin:0 0 6px;">Sucursal</label>
+          <select id="sucursal-select" style="margin:0;"></select>
+        </div>
         <div class="card qr-card">
           <div class="pill pill-active">Código activo</div>
           <h2 style="margin-top:12px;">Código de asistencia</h2>
@@ -54,7 +58,7 @@
 
       <div class="card">
         <div class="card-head">
-          <h2>Asistencia de hoy</h2>
+          <h2>Asistencia de hoy <span id="sucursal-titulo" style="color:var(--muted); font-weight:600;"></span></h2>
           <span class="pill" style="background:var(--blue-light); color:var(--blue-dark);" id="contador-hoy">0 registros</span>
         </div>
         <div style="overflow-x:auto;">

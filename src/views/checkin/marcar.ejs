@@ -12,6 +12,9 @@
   <div class="contenedor">
     <div class="tarjeta" style="margin-top: 24px;" data-geo-activa="<%= geolocalizacionActiva ? '1' : '0' %>">
       <h1>Hola, <%= nombre %></h1>
+      <% if (typeof sucursalNombre !== 'undefined' && sucursalNombre) { %>
+        <p class="subtitulo" style="margin-top:-2px;">Marcando en: <strong><%= sucursalNombre %></strong></p>
+      <% } %>
 
       <% if (error) { %>
         <div class="error"><%= error %></div>

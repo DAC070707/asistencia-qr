@@ -44,24 +44,30 @@ async function workerDesdeCookie(req, empresaId) {
   }
 }
 
-async function datosParaVistaMarcar(worker, token, empresaId, registro, error) {
-  const geo = await horarioService.obtenerConfigUbicacion(empresaId);
+async function datosParaVistaMarcar(worker, codigo, registro, error) {
+  const geo = await horarioService.obtenerConfigUbicacion(codigo.sucursal_id);
+  const { count } = await db('sucursales')
+    .where({ empresa_id: codigo.empresa_id, activo: true })
+    .count('* as count')
+    .first();
   return {
-    token,
+    token: codigo.token,
     nombre: worker.nombre,
-    logoEmpresaUrl: `/logo/${empresaId}`,
+    logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
     horaEntrada: registro ? horaLima(new Date(registro.creado_en)) : null,
     horaSalida: registro?.hora_salida ? horaLima(new Date(registro.hora_salida)) : null,
     geolocalizacionActiva: geo.activa,
+    sucursalNombre: Number(count) > 1 ? geo.nombre : null,
     error: error || null
   };
 }
 
-// Valida la ubicacion enviada al marcar contra la de la empresa (si tiene la
-// verificacion activa). Devuelve { ok:true, geo } con lat/lng/distancia lista
-// para persistir, o { ok:false, mensaje } sin tocar la base de datos.
-async function validarGeolocalizacion(empresaId, body) {
-  const config = await horarioService.obtenerConfigUbicacion(empresaId);
+// Valida la ubicacion enviada al marcar contra la de la sucursal del QR
+// escaneado (si tiene la verificacion activa). Devuelve { ok:true, geo } con
+// lat/lng/distancia lista para persistir, o { ok:false, mensaje } sin tocar
+// la base de datos.
+async function validarGeolocalizacion(sucursalId, body) {
+  const config = await horarioService.obtenerConfigUbicacion(sucursalId);
   if (!config.activa) {
     return { ok: true, geo: null };
   }
@@ -101,7 +107,7 @@ async function mostrarCheckin(req, res) {
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
   return res.render(
     'checkin/marcar',
-    await datosParaVistaMarcar(worker, token, codigo.empresa_id, registro)
+    await datosParaVistaMarcar(worker, codigo, registro)
   );
 }
 
@@ -158,7 +164,7 @@ async function identificar(req, res) {
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
   return res.render(
     'checkin/marcar',
-    await datosParaVistaMarcar(worker, token, codigo.empresa_id, registro)
+    await datosParaVistaMarcar(worker, codigo, registro)
   );
 }
 
@@ -176,12 +182,12 @@ async function marcar(req, res) {
 
   const accion = req.body.accion;
 
-  const geoResultado = await validarGeolocalizacion(codigo.empresa_id, req.body);
+  const geoResultado = await validarGeolocalizacion(codigo.sucursal_id, req.body);
   if (!geoResultado.ok) {
     const registroActual = await attendanceService.buscarAsistenciaDeHoy(worker.id);
     return res.render(
       'checkin/marcar',
-      await datosParaVistaMarcar(worker, token, codigo.empresa_id, registroActual, geoResultado.mensaje)
+      await datosParaVistaMarcar(worker, codigo, registroActual, geoResultado.mensaje)
     );
   }
 
@@ -190,6 +196,7 @@ async function marcar(req, res) {
       workerId: worker.id,
       dailyCodeId: codigo.id,
       empresaId: codigo.empresa_id,
+      sucursalId: codigo.sucursal_id,
       geo: geoResultado.geo
     });
     const horario = await horarioService.resolverHorarioDelDia(worker.id, registro.fecha);
@@ -216,7 +223,7 @@ async function marcar(req, res) {
     if (resultado.error === 'sin_entrada') {
       return res.render(
         'checkin/marcar',
-        await datosParaVistaMarcar(worker, token, codigo.empresa_id, null, 'Primero marca tu entrada de hoy.')
+        await datosParaVistaMarcar(worker, codigo, null, 'Primero marca tu entrada de hoy.')
       );
     }
 

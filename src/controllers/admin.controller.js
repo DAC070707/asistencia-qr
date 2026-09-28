@@ -3,6 +3,7 @@ const dailyCodeService = require('../services/dailyCode.service');
 const qrImageService = require('../services/qrImage.service');
 const attendanceService = require('../services/attendance.service');
 const horarioService = require('../services/horario.service');
+const sucursalService = require('../services/sucursal.service');
 const db = require('../config/db');
 const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
 
@@ -40,31 +41,63 @@ async function subirLogo(req, res) {
 
 async function obtenerConfiguracionEmpresa(req, res) {
   const empresa = await db('empresas').where({ id: req.admin.empresaId }).first();
-  res.json({
-    toleranciaEntradaMinutos: empresa.tolerancia_entrada_minutos,
-    direccion: empresa.direccion || '',
-    lat: empresa.lat != null ? Number(empresa.lat) : null,
-    lng: empresa.lng != null ? Number(empresa.lng) : null,
-    radioMetros: empresa.radio_metros,
-    geolocalizacionActiva: empresa.geolocalizacion_activa
-  });
+  res.json({ toleranciaEntradaMinutos: empresa.tolerancia_entrada_minutos });
 }
 
-// Un unico endpoint de configuracion que acepta actualizaciones parciales:
-// el admin guarda la tolerancia y la ubicacion desde tarjetas separadas en la
-// pantalla, cada una con su propio boton, pero ambas pegan aca — solo se
-// valida/actualiza lo que venga presente en el body.
 async function guardarConfiguracionEmpresa(req, res) {
-  const { toleranciaEntradaMinutos, direccion, lat, lng, radioMetros, geolocalizacionActiva } =
-    req.body;
+  const { toleranciaEntradaMinutos } = req.body;
+  const minutos = Number(toleranciaEntradaMinutos);
+  if (!Number.isInteger(minutos) || minutos < 0 || minutos > 120) {
+    return res.status(400).json({ error: 'La tolerancia debe ser un entero entre 0 y 120 minutos' });
+  }
+  await db('empresas')
+    .where({ id: req.admin.empresaId })
+    .update({ tolerancia_entrada_minutos: minutos });
+  return obtenerConfiguracionEmpresa(req, res);
+}
+
+function serializarSucursal(s) {
+  return {
+    id: s.id,
+    nombre: s.nombre,
+    direccion: s.direccion || '',
+    lat: s.lat != null ? Number(s.lat) : null,
+    lng: s.lng != null ? Number(s.lng) : null,
+    radioMetros: s.radio_metros,
+    geolocalizacionActiva: s.geolocalizacion_activa,
+    activo: s.activo
+  };
+}
+
+async function listarSucursales(req, res) {
+  const sucursales = await sucursalService.listar(req.admin.empresaId);
+  res.json(sucursales.map(serializarSucursal));
+}
+
+async function crearSucursal(req, res) {
+  const nombre = String(req.body.nombre || '').trim();
+  if (nombre.length < 2) {
+    return res.status(400).json({ error: 'Ingresa el nombre de la sucursal' });
+  }
+  const creada = await sucursalService.crear(req.admin.empresaId, { nombre });
+  res.status(201).json(serializarSucursal(creada));
+}
+
+// Actualizacion parcial de una sucursal de la empresa del admin. Un id de otra
+// empresa responde 404 (igual que uno inexistente).
+async function actualizarSucursal(req, res) {
+  const sucursal = await sucursalService.obtenerDeEmpresa(Number(req.params.id), req.admin.empresaId);
+  if (!sucursal) {
+    return res.status(404).json({ error: 'Sucursal no encontrada' });
+  }
+
+  const { nombre, direccion, lat, lng, radioMetros, geolocalizacionActiva } = req.body;
   const cambios = {};
 
-  if (toleranciaEntradaMinutos !== undefined) {
-    const minutos = Number(toleranciaEntradaMinutos);
-    if (!Number.isInteger(minutos) || minutos < 0 || minutos > 120) {
-      return res.status(400).json({ error: 'La tolerancia debe ser un entero entre 0 y 120 minutos' });
-    }
-    cambios.tolerancia_entrada_minutos = minutos;
+  if (nombre !== undefined) {
+    const n = String(nombre).trim();
+    if (n.length < 2) return res.status(400).json({ error: 'Ingresa el nombre de la sucursal' });
+    cambios.nombre = n.slice(0, 120);
   }
 
   if (radioMetros !== undefined || lat !== undefined || lng !== undefined || geolocalizacionActiva !== undefined) {
@@ -100,8 +133,11 @@ async function guardarConfiguracionEmpresa(req, res) {
     return res.status(400).json({ error: 'Nada que guardar' });
   }
 
-  await db('empresas').where({ id: req.admin.empresaId }).update(cambios);
-  return obtenerConfiguracionEmpresa(req, res);
+  const [actualizada] = await db('sucursales')
+    .where({ id: sucursal.id, empresa_id: req.admin.empresaId })
+    .update(cambios)
+    .returning('*');
+  res.json(serializarSucursal(actualizada));
 }
 
 async function servirLogo(req, res) {
@@ -172,17 +208,33 @@ async function paginaConfiguracion(req, res) {
   });
 }
 
+// Resuelve la sucursal del parametro sucursal_id (query o body); sin parametro
+// es la Principal. Un id de otra empresa responde 404 y devuelve null.
+async function sucursalDeRequest(req, res, origen) {
+  const sucursal = await sucursalService.resolverParaAdmin(origen.sucursal_id, req.admin.empresaId);
+  if (!sucursal) {
+    res.status(404).json({ error: 'Sucursal no encontrada' });
+    return null;
+  }
+  return sucursal;
+}
+
 async function qrDeHoy(req, res) {
-  const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy(req.admin.empresaId);
+  const sucursal = await sucursalDeRequest(req, res, req.query);
+  if (!sucursal) return;
+  const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy(req.admin.empresaId, sucursal.id);
   res.json({
     fecha: formatoFecha(codigo.fecha),
     token: codigo.token,
-    url: qrImageService.urlCheckin(codigo.token)
+    url: qrImageService.urlCheckin(codigo.token),
+    sucursal: { id: sucursal.id, nombre: sucursal.nombre }
   });
 }
 
 async function qrDeHoyImagen(req, res) {
-  const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy(req.admin.empresaId);
+  const sucursal = await sucursalDeRequest(req, res, req.query);
+  if (!sucursal) return;
+  const codigo = await dailyCodeService.obtenerOCrearCodigoDeHoy(req.admin.empresaId, sucursal.id);
   const buffer = await qrImageService.generarPngBuffer(codigo.token);
   res.set('Content-Type', 'image/png');
   res.set('Cache-Control', 'no-store');
@@ -190,16 +242,29 @@ async function qrDeHoyImagen(req, res) {
 }
 
 async function regenerarQr(req, res) {
-  const codigo = await dailyCodeService.regenerarCodigoDeHoy(req.admin.empresaId, req.admin.id);
+  const sucursal = await sucursalDeRequest(req, res, req.body || {});
+  if (!sucursal) return;
+  const codigo = await dailyCodeService.regenerarCodigoDeHoy(
+    req.admin.empresaId,
+    sucursal.id,
+    req.admin.id
+  );
   res.json({
     fecha: formatoFecha(codigo.fecha),
     token: codigo.token,
-    url: qrImageService.urlCheckin(codigo.token)
+    url: qrImageService.urlCheckin(codigo.token),
+    sucursal: { id: sucursal.id, nombre: sucursal.nombre }
   });
 }
 
 async function asistenciaDeHoy(req, res) {
-  const registros = await attendanceService.listarAsistenciaDeHoy(req.admin.empresaId);
+  const sucursal = await sucursalDeRequest(req, res, req.query);
+  if (!sucursal) return;
+  const principal = await sucursalService.obtenerPrincipal(req.admin.empresaId);
+  const registros = await attendanceService.listarAsistenciaDeHoy(req.admin.empresaId, {
+    id: sucursal.id,
+    esPrincipal: sucursal.id === principal.id
+  });
   res.json(registros);
 }
 
@@ -208,6 +273,9 @@ function parametrosRango(query) {
   const desde = query.desde || query.fecha || hoy;
   const hasta = query.hasta || query.fecha || hoy;
   const workerId = query.worker_id || null;
+  const sucursalAsignadaId = Number.isInteger(Number(query.sucursal_id)) && Number(query.sucursal_id) > 0
+    ? Number(query.sucursal_id)
+    : null;
 
   if (!FECHA_REGEX.test(desde) || !FECHA_REGEX.test(hasta)) {
     return { error: 'Formato de fecha invalido, usa YYYY-MM-DD' };
@@ -215,7 +283,7 @@ function parametrosRango(query) {
   if (desde > hasta) {
     return { error: 'La fecha "desde" no puede ser posterior a "hasta"' };
   }
-  return { desde, hasta, workerId };
+  return { desde, hasta, workerId, sucursalAsignadaId };
 }
 
 async function asistenciaPorFecha(req, res) {
@@ -258,13 +326,14 @@ async function exportarExcel(req, res) {
   if (rango.error) {
     return res.status(400).json({ error: rango.error });
   }
-  const { desde, hasta, workerId } = rango;
+  const { desde, hasta, workerId, sucursalAsignadaId } = rango;
 
   const filas = await horarioService.construirGrillaAsistencia({
     empresaId: req.admin.empresaId,
     desde,
     hasta,
-    workerId
+    workerId,
+    sucursalId: sucursalAsignadaId
   });
   const empresaNombre = await nombreDeEmpresa(req.admin.empresaId);
 
@@ -414,9 +483,19 @@ async function listarWorkers(req, res) {
 
 async function actualizarWorker(req, res) {
   const { id } = req.params;
-  const { activo, nombre, horas_extra_activas, dispositivo_vinculado, fecha_ingreso } = req.body;
+  const { activo, nombre, horas_extra_activas, dispositivo_vinculado, fecha_ingreso, sucursal_id } =
+    req.body;
 
   const cambios = {};
+  if (sucursal_id !== undefined) {
+    if (sucursal_id === null || sucursal_id === '') {
+      cambios.sucursal_id = null;
+    } else {
+      const sucursal = await sucursalService.obtenerDeEmpresa(Number(sucursal_id), req.admin.empresaId);
+      if (!sucursal) return res.status(400).json({ error: 'Sucursal invalida' });
+      cambios.sucursal_id = sucursal.id;
+    }
+  }
   if (typeof activo === 'boolean') cambios.activo = activo;
   if (typeof horas_extra_activas === 'boolean') cambios.horas_extra_activas = horas_extra_activas;
   if (typeof nombre === 'string' && nombre.trim()) cambios.nombre = nombre.trim();
@@ -693,6 +772,9 @@ module.exports = {
   servirLogo,
   obtenerConfiguracionEmpresa,
   guardarConfiguracionEmpresa,
+  listarSucursales,
+  crearSucursal,
+  actualizarSucursal,
   obtenerHorarioTrabajador,
   guardarHorarioTrabajador,
   listarTurnos,

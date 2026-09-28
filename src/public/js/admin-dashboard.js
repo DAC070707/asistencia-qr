@@ -14,13 +14,65 @@ function formatearHora(iso) {
   });
 }
 
+const CLAVE_SUCURSAL = 'dana_sucursal_seleccionada';
+const sucursalSelect = document.getElementById('sucursal-select');
+let sucursalActualId = null;
+
+function guardarSeleccion(id) {
+  try {
+    localStorage.setItem(CLAVE_SUCURSAL, String(id));
+  } catch (e) {
+    /* localStorage no disponible: se sigue sin recordar la eleccion */
+  }
+}
+
+function leerSeleccion() {
+  try {
+    return localStorage.getItem(CLAVE_SUCURSAL);
+  } catch (e) {
+    return null;
+  }
+}
+
+function paramSucursal() {
+  return sucursalActualId ? `sucursal_id=${sucursalActualId}` : '';
+}
+
+async function cargarSucursales() {
+  const resp = await fetch('/api/admin/sucursales');
+  if (!resp.ok) return;
+  const sucursales = await resp.json();
+  if (sucursales.length === 0) return;
+
+  const recordada = leerSeleccion();
+  const elegida = sucursales.find((s) => String(s.id) === recordada) || sucursales[0];
+  sucursalActualId = elegida.id;
+
+  sucursalSelect.innerHTML = sucursales
+    .map((s) => `<option value="${s.id}">${escapeHtml(s.nombre)}</option>`)
+    .join('');
+  sucursalSelect.value = String(elegida.id);
+  document.getElementById('selector-sucursal').hidden = sucursales.length < 2;
+  document.getElementById('sucursal-titulo').textContent =
+    sucursales.length > 1 ? '· ' + elegida.nombre : '';
+}
+
+sucursalSelect.addEventListener('change', () => {
+  sucursalActualId = Number(sucursalSelect.value);
+  guardarSeleccion(sucursalActualId);
+  document.getElementById('sucursal-titulo').textContent =
+    '· ' + sucursalSelect.options[sucursalSelect.selectedIndex].text;
+  cargarQr();
+  cargarAsistenciaHoy();
+});
+
 async function cargarQr() {
-  const resp = await fetch('/api/admin/qr/today');
+  const resp = await fetch('/api/admin/qr/today?' + paramSucursal());
   if (!resp.ok) return;
   const data = await resp.json();
   document.getElementById('fecha-hoy').textContent = data.fecha;
   document.getElementById('url-checkin').textContent = data.url;
-  document.getElementById('qr-img').src = '/api/admin/qr/today.png?t=' + Date.now();
+  document.getElementById('qr-img').src = '/api/admin/qr/today.png?' + paramSucursal() + '&t=' + Date.now();
 }
 
 function iniciales(nombre) {
@@ -34,7 +86,7 @@ function iniciales(nombre) {
 }
 
 async function cargarAsistenciaHoy() {
-  const resp = await fetch('/api/admin/attendance/today');
+  const resp = await fetch('/api/admin/attendance/today?' + paramSucursal());
   if (!resp.ok) return;
   const registros = await resp.json();
 
@@ -87,7 +139,11 @@ document.getElementById('regenerar-btn').addEventListener('click', async () => {
   const btn = document.getElementById('regenerar-btn');
   btn.disabled = true;
   try {
-    await fetch('/api/admin/qr/regenerate', { method: 'POST' });
+    await fetch('/api/admin/qr/regenerate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sucursal_id: sucursalActualId })
+    });
     await cargarQr();
   } finally {
     btn.disabled = false;
@@ -100,8 +156,10 @@ document.getElementById('logout-link').addEventListener('click', async (e) => {
   window.location.href = '/admin/login';
 });
 
-cargarQr();
-cargarAsistenciaHoy();
+cargarSucursales().then(() => {
+  cargarQr();
+  cargarAsistenciaHoy();
+});
 actualizarSaludoYFecha();
 actualizarReloj();
 setInterval(cargarAsistenciaHoy, POLL_MS);

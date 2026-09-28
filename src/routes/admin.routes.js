@@ -98,6 +98,15 @@ router.patch(
   asyncHandler(adminController.guardarConfiguracionEmpresa)
 );
 
+// Sucursales (QR, ubicacion y trabajadores por local)
+router.get('/api/admin/sucursales', requireAdminAuth, asyncHandler(adminController.listarSucursales));
+router.post('/api/admin/sucursales', requireAdminAuth, asyncHandler(adminController.crearSucursal));
+router.patch(
+  '/api/admin/sucursales/:id',
+  requireAdminAuth,
+  asyncHandler(adminController.actualizarSucursal)
+);
+
 // Horario del trabajador (semanal o rotativo)
 router.get(
   '/api/admin/workers/:id/horario',
