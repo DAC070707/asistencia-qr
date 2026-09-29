@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Escanea el QR nuevamente — DANA</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <%- include('../partials/header', { logoEmpresaUrl: logoEmpresaUrl }) %>
+
+  <div class="contenedor">
+    <div class="tarjeta" style="margin-top: 40px; text-align:center;">
+      <div class="estado-icono">
+        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="var(--blue)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 7V4a1 1 0 0 1 1-1h3M17 3h3a1 1 0 0 1 1 1v3M21 17v3a1 1 0 0 1-1 1h-3M7 21H4a1 1 0 0 1-1-1v-3"/>
+          <rect x="7" y="7" width="4" height="4" rx=".5"/><rect x="13" y="7" width="4" height="4" rx=".5"/><rect x="7" y="13" width="4" height="4" rx=".5"/>
+          <path d="M13 13h1.5M16 13v1.5M13 16h1.5v1M17 17h0"/>
+        </svg>
+      </div>
+      <h1>Escanea el QR nuevamente</h1>
+      <% if (motivo === 'vencido') { %>
+        <p class="subtitulo">Pasaron más de 10 minutos desde que escaneaste el código. Para marcar, escanea el código QR del local con la cámara de tu celular.</p>
+      <% } else { %>
+        <p class="subtitulo">Por seguridad, cada escaneo sirve para una sola marcación. Para marcar tu siguiente registro, escanea el código QR del local con la cámara de tu celular.</p>
+      <% } %>
+      <p style="margin-top:20px;">
+        <a href="/mi-historial" style="color:var(--blue); text-decoration:none; font-weight:600; font-size:0.85rem;">Ver mis horas extra y mi historial</a>
+      </p>
+    </div>
+  </div>
+
+  <%- include('../partials/footer') %>
+
+  <script>
+    window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
+  </script>
+</body>
+</html>

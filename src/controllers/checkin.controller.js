@@ -8,6 +8,7 @@ const horarioService = require('../services/horario.service');
 const { clasificarEntrada, clasificarSalida } = require('../utils/overtime');
 const { calcularDistanciaMetros } = require('../utils/geo');
 const intentosService = require('../services/intentos.service');
+const escaneoService = require('../services/escaneo.service');
 
 const DEVICE_COOKIE_OPTS = {
   httpOnly: true,
@@ -45,7 +46,7 @@ async function workerDesdeCookie(req, empresaId) {
   }
 }
 
-async function datosParaVistaMarcar(worker, codigo, registro, error) {
+async function datosParaVistaMarcar(worker, codigo, registro, error, escaneo) {
   const geo = await horarioService.obtenerConfigUbicacion(codigo.sucursal_id);
   const { count } = await db('sucursales')
     .where({ empresa_id: codigo.empresa_id, activo: true })
@@ -68,6 +69,7 @@ async function datosParaVistaMarcar(worker, codigo, registro, error) {
       ? horaLima(new Date(registro.refrigerio_regreso_en))
       : null,
     sucursalNombre: Number(count) > 1 ? geo.nombre : null,
+    escaneo,
     error: error || null
   };
 }
@@ -120,6 +122,24 @@ async function validarGeolocalizacion(sucursalId, body) {
   };
 }
 
+// Las pantallas del flujo de marcacion no deben quedar en la cache del
+// navegador: al ir "atras" se vuelven a pedir y el servidor decide.
+function sinCache(res) {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+}
+
+function renderEscanearNuevamente(res, codigo, motivo) {
+  sinCache(res);
+  return res.render('checkin/escanear-nuevamente', {
+    logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
+    motivo
+  });
+}
+
+// El enlace del QR es permanente. Cada vez que se abre sin codigo de escaneo
+// (= se escaneo el QR) se crea uno de un solo uso y se redirige a
+// ?e=<codigo>; la redireccion reemplaza la entrada del historial, asi que
+// "atras" vuelve a la direccion con el codigo ya usado, no a una limpia.
 async function mostrarCheckin(req, res) {
   const { token } = req.params;
   const codigo = await dailyCodeService.validarToken(token);
@@ -128,15 +148,26 @@ async function mostrarCheckin(req, res) {
   }
 
   const worker = await workerDesdeCookie(req, codigo.empresa_id);
+
+  if (!req.query.e) {
+    const escaneo = await escaneoService.crear(codigo, worker?.id);
+    sinCache(res);
+    return res.redirect(302, `/checkin/${token}?e=${escaneo.codigo}`);
+  }
+
+  const validacion = await escaneoService.validar(String(req.query.e), codigo.id, worker?.id);
+  if (!validacion.ok) {
+    return renderEscanearNuevamente(res, codigo, validacion.motivo);
+  }
+  const escaneo = validacion.escaneo.codigo;
+  sinCache(res);
+
   if (!worker) {
-    return res.render('checkin/form', { token, logoEmpresaUrl: `/logo/${codigo.empresa_id}` });
+    return res.render('checkin/form', { token, escaneo, logoEmpresaUrl: `/logo/${codigo.empresa_id}` });
   }
 
   const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
-  return res.render(
-    'checkin/marcar',
-    await datosParaVistaMarcar(worker, codigo, registro)
-  );
+  return res.render('checkin/marcar', await datosParaVistaMarcar(worker, codigo, registro, null, escaneo));
 }
 
 async function identificar(req, res) {
@@ -146,6 +177,13 @@ async function identificar(req, res) {
     return res.render('checkin/codigo-invalido');
   }
 
+  const escaneo = String(req.body.escaneo || '');
+  const previa = await escaneoService.validar(escaneo, codigo.id, null);
+  if (!previa.ok) {
+    return renderEscanearNuevamente(res, codigo, previa.motivo);
+  }
+  sinCache(res);
+
   const logoEmpresaUrl = `/logo/${codigo.empresa_id}`;
   const dni = String(req.body.dni || '').trim();
   const nombre = String(req.body.nombre || '').trim();
@@ -153,12 +191,13 @@ async function identificar(req, res) {
   if (!/^\d{8}$/.test(dni)) {
     return res.render('checkin/form', {
       token,
+      escaneo,
       logoEmpresaUrl,
       error: 'Ingresa un DNI valido de 8 digitos'
     });
   }
   if (nombre.length < 3) {
-    return res.render('checkin/form', { token, logoEmpresaUrl, error: 'Ingresa tu nombre completo' });
+    return res.render('checkin/form', { token, escaneo, logoEmpresaUrl, error: 'Ingresa tu nombre completo' });
   }
 
   const worker = await attendanceService.buscarOCrearWorker({
@@ -169,6 +208,7 @@ async function identificar(req, res) {
   if (!worker.activo) {
     return res.render('checkin/form', {
       token,
+      escaneo,
       logoEmpresaUrl,
       error: 'Tu registro esta inactivo. Contacta al administrador.'
     });
@@ -181,19 +221,34 @@ async function identificar(req, res) {
   if (!gano) {
     return res.render('checkin/form', {
       token,
+      escaneo,
       logoEmpresaUrl,
       error:
         'Este DNI ya está vinculado a un dispositivo. Si cambiaste de celular, pide al administrador que reinicie el vínculo.'
     });
   }
 
+  // El escaneo queda amarrado a este trabajador.
+  const validacion = await escaneoService.validar(escaneo, codigo.id, worker.id);
+  if (!validacion.ok) {
+    return renderEscanearNuevamente(res, codigo, validacion.motivo);
+  }
+
   setDeviceCookie(res, worker.id, codigo.empresa_id);
 
-  const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
-  return res.render(
-    'checkin/marcar',
-    await datosParaVistaMarcar(worker, codigo, registro)
-  );
+  // Post/Redirect/Get: la pagina de marcar queda en el historial con la
+  // direccion del escaneo (?e=), no con la de este POST.
+  return res.redirect(303, `/checkin/${token}?e=${escaneo}`);
+}
+
+// Volver "atras" a una direccion de envio (/marcar, /identificar) puede
+// hacer que el navegador la pida por GET: nunca debe abrir la marcacion.
+async function paginaEscanearNuevamente(req, res) {
+  const codigo = await dailyCodeService.validarToken(req.params.token);
+  if (!codigo) {
+    return res.render('checkin/codigo-invalido');
+  }
+  return renderEscanearNuevamente(res, codigo, 'usado');
 }
 
 async function marcar(req, res) {
@@ -203,10 +258,26 @@ async function marcar(req, res) {
     return res.render('checkin/codigo-invalido');
   }
 
+  const escaneo = String(req.body.escaneo || '');
   const worker = await workerDesdeCookie(req, codigo.empresa_id);
   if (!worker) {
-    return res.render('checkin/form', { token, logoEmpresaUrl: `/logo/${codigo.empresa_id}` });
+    const previa = await escaneoService.validar(escaneo, codigo.id, null);
+    if (!previa.ok) return renderEscanearNuevamente(res, codigo, previa.motivo);
+    sinCache(res);
+    return res.render('checkin/form', { token, escaneo, logoEmpresaUrl: `/logo/${codigo.empresa_id}` });
   }
+
+  // Cada escaneo del QR sirve para UNA sola marcacion.
+  const validacion = await escaneoService.validar(escaneo, codigo.id, worker.id);
+  if (!validacion.ok) {
+    return renderEscanearNuevamente(res, codigo, validacion.motivo);
+  }
+  const escaneoId = validacion.escaneo.id;
+  sinCache(res);
+
+  // Vista de marcar con error, sin consumir el escaneo (puede reintentar).
+  const volverAMarcar = async (registro, mensaje) =>
+    res.render('checkin/marcar', await datosParaVistaMarcar(worker, codigo, registro, mensaje, escaneo));
 
   const accion = req.body.accion;
 
@@ -223,10 +294,17 @@ async function marcar(req, res) {
       userAgent: req.get('user-agent')
     });
     const registroActual = await attendanceService.buscarAsistenciaDeHoy(worker.id);
-    return res.render(
-      'checkin/marcar',
-      await datosParaVistaMarcar(worker, codigo, registroActual, geoResultado.mensaje)
-    );
+    return volverAMarcar(registroActual, geoResultado.mensaje);
+  }
+
+  const ACCIONES = ['entrada', 'salida', 'refrigerio_salida', 'refrigerio_regreso'];
+  if (!ACCIONES.includes(accion)) {
+    return res.status(400).send('Accion invalida');
+  }
+
+  // Reclamo atomico: si llegan dos envios con el mismo escaneo, solo uno sigue.
+  if (!(await escaneoService.consumir(escaneoId))) {
+    return renderEscanearNuevamente(res, codigo, 'usado');
   }
 
   if (accion === 'entrada') {
@@ -259,10 +337,8 @@ async function marcar(req, res) {
     const resultado = await attendanceService.marcarSalida({ workerId: worker.id, geo: geoResultado.geo });
 
     if (resultado.error === 'sin_entrada') {
-      return res.render(
-        'checkin/marcar',
-        await datosParaVistaMarcar(worker, codigo, null, 'Primero marca tu entrada de hoy.')
-      );
+      await escaneoService.liberar(escaneoId);
+      return volverAMarcar(null, 'Primero marca tu entrada de hoy.');
     }
 
     const horario = await horarioService.resolverHorarioDelDia(worker.id, resultado.registro.fecha);
@@ -282,10 +358,8 @@ async function marcar(req, res) {
     const empresa = await db('empresas').where({ id: codigo.empresa_id }).first('controla_refrigerio');
     const registroActual = await attendanceService.buscarAsistenciaDeHoy(worker.id);
     if (!empresa?.controla_refrigerio) {
-      return res.render(
-        'checkin/marcar',
-        await datosParaVistaMarcar(worker, codigo, registroActual, 'Tu empresa no controla el refrigerio.')
-      );
+      await escaneoService.liberar(escaneoId);
+      return volverAMarcar(registroActual, 'Tu empresa no controla el refrigerio.');
     }
 
     const esSalida = accion === 'refrigerio_salida';
@@ -299,10 +373,8 @@ async function marcar(req, res) {
       sin_salida_refrigerio: 'Primero marca tu salida a refrigerio.'
     };
     if (resultado.error) {
-      return res.render(
-        'checkin/marcar',
-        await datosParaVistaMarcar(worker, codigo, registroActual, mensajesError[resultado.error])
-      );
+      await escaneoService.liberar(escaneoId);
+      return volverAMarcar(registroActual, mensajesError[resultado.error]);
     }
 
     const hora = esSalida
@@ -409,4 +481,11 @@ async function historialWorker(req, res) {
   });
 }
 
-module.exports = { mostrarCheckin, identificar, marcar, registrarIntentoFallido, historialWorker };
+module.exports = {
+  mostrarCheckin,
+  identificar,
+  marcar,
+  paginaEscanearNuevamente,
+  registrarIntentoFallido,
+  historialWorker
+};

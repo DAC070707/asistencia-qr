@@ -21,7 +21,8 @@
         <div class="error"><%= error %></div>
       <% } %>
 
-      <form method="POST" action="/checkin/<%= token %>">
+      <form method="POST" action="/checkin/<%= token %>/identificar">
+        <input type="hidden" name="escaneo" value="<%= escaneo %>" />
         <label for="nombre">Nombre completo</label>
         <input type="text" id="nombre" name="nombre" required minlength="3" autocomplete="name" />
 
@@ -34,5 +35,11 @@
   </div>
 
   <%- include('../partials/footer') %>
+
+  <script>
+    // Si el navegador restaura esta pagina desde su cache al ir "atras",
+    // recargarla para que el servidor decida si el escaneo sigue vigente.
+    window.addEventListener('pageshow', function (e) { if (e.persisted) location.reload(); });
+  </script>
 </body>
 </html>

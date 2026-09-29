@@ -42,6 +42,7 @@
       <div class="fila-acciones" style="flex-direction:column;">
         <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%;">
           <input type="hidden" name="accion" value="entrada" />
+            <input type="hidden" name="escaneo" value="<%= escaneo %>" />
           <button type="submit" style="width:100%;" <%= horaEntrada ? 'disabled' : '' %>>
             Marcar entrada
           </button>
@@ -49,12 +50,14 @@
         <% if (controlaRefrigerio) { %>
           <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%; margin-top:10px;">
             <input type="hidden" name="accion" value="refrigerio_salida" />
+            <input type="hidden" name="escaneo" value="<%= escaneo %>" />
             <button type="submit" class="secundario" style="width:100%;" <%= (!horaEntrada || horaSalida || horaRefrigerioSalida) ? 'disabled' : '' %>>
               Salida a refrigerio<% if (horaRefrigerioSalida) { %> · <%= horaRefrigerioSalida %><% } %>
             </button>
           </form>
           <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%; margin-top:10px;">
             <input type="hidden" name="accion" value="refrigerio_regreso" />
+            <input type="hidden" name="escaneo" value="<%= escaneo %>" />
             <button type="submit" class="secundario" style="width:100%;" <%= (!horaRefrigerioSalida || horaSalida || horaRefrigerioRegreso) ? 'disabled' : '' %>>
               Regreso de refrigerio<% if (horaRefrigerioRegreso) { %> · <%= horaRefrigerioRegreso %><% } %>
             </button>
@@ -62,6 +65,7 @@
         <% } %>
         <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%; margin-top:10px;">
           <input type="hidden" name="accion" value="salida" />
+            <input type="hidden" name="escaneo" value="<%= escaneo %>" />
           <button type="submit" class="secundario" style="width:100%;" <%= (!horaEntrada || horaSalida) ? 'disabled' : '' %>>
             Marcar salida
           </button>

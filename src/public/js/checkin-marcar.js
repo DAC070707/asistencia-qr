@@ -1,3 +1,10 @@
+// Si el navegador restaura la pagina de marcar desde su cache al ir "atras"
+// (comun en iPhone), recargarla: el servidor muestra "Escanea el QR
+// nuevamente" si ese escaneo ya se uso.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) location.reload();
+});
+
 (function () {
   const contenedor = document.querySelector('[data-geo-activa]');
   if (!contenedor || contenedor.dataset.geoActiva !== '1') return;
