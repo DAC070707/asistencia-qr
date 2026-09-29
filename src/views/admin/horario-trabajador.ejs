@@ -13,21 +13,39 @@
   <div class="app-shell">
     <%- include('../partials/sidebar', { active: 'trabajadores' }) %>
 
-    <main class="main" id="app" data-worker-id="<%= worker.id %>">
+    <main class="main" id="app" data-worker-id="<%= worker.id %>" data-fecha-ingreso="<%= worker.fecha_ingreso ? new Date(worker.fecha_ingreso).toISOString().slice(0, 10) : '' %>">
       <a href="/admin/trabajadores" class="back-link">← Volver a trabajadores</a>
 
       <div class="topbar">
         <div>
           <p class="eyebrow">Trabajador</p>
           <h1>Horario de <%= worker.nombre %></h1>
-          <p class="topbar-sub">Elige un solo tipo de horario. Cambiar de tipo reemplaza la configuración anterior.</p>
+          <p class="topbar-sub">Cada horario aplica desde una fecha. Al agregar uno nuevo, el anterior se mantiene para las fechas previas.</p>
         </div>
       </div>
 
       <div class="card">
+        <div class="card-head">
+          <h2 style="margin:0;">Horarios</h2>
+          <button type="button" id="nuevo-horario-btn">+ Nuevo horario</button>
+        </div>
+        <p class="card-sub">Las horas extra, tardanzas e inasistencias de cada día se calculan con el horario vigente en esa fecha, y se recalculan solas cuando cambias un horario.</p>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead><tr><th>Aplica desde</th><th>Tipo</th><th>Detalle</th><th>Estado</th><th></th></tr></thead>
+            <tbody id="tabla-versiones">
+              <tr><td colspan="5">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" id="editor" hidden>
+        <h2 id="editor-titulo">Nuevo horario</h2>
+        <div id="editor-error"></div>
         <div class="fila-acciones">
-          <label style="margin:0; font-weight:500; text-transform:none;">
-            <input type="radio" name="tipo-horario" value="" /> Sin asignar
+          <label style="margin:0;">Aplica desde
+            <input type="date" id="vigente-desde-input" style="max-width:180px; margin:0;" />
           </label>
           <label style="margin:0; font-weight:500; text-transform:none;">
             <input type="radio" name="tipo-horario" value="semanal" /> Semanal
@@ -42,9 +60,6 @@
             <thead><tr><th>Día</th><th>Libre</th><th>Entrada</th><th>Salida</th></tr></thead>
             <tbody id="tabla-semanal"></tbody>
           </table>
-          <div class="fila-acciones">
-            <button id="guardar-semanal-btn">Guardar horario semanal</button>
-          </div>
         </div>
 
         <div id="bloque-rotativo" hidden>
@@ -53,14 +68,12 @@
           </label>
           <p class="card-sub" style="margin-bottom:8px;">Secuencia de pasos — se repite cada N días (N = cantidad de pasos que agregues):</p>
           <div id="pasos-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
-          <div class="fila-acciones">
-            <button type="button" id="agregar-paso-btn" class="secundario">+ Agregar paso</button>
-            <button id="guardar-rotacion-btn">Guardar rotación</button>
-          </div>
+          <button type="button" id="agregar-paso-btn" class="secundario">+ Agregar paso</button>
         </div>
 
-        <div id="sin-horario-msg" hidden>
-          <p class="card-sub">Este trabajador no tiene horario asignado — no se calcularán horas extra, pendientes ni clasificación de marcaciones hasta que asignes uno.</p>
+        <div class="fila-acciones" style="margin-top:14px; margin-bottom:0;">
+          <button type="button" id="guardar-horario-btn">Guardar horario</button>
+          <button type="button" id="cancelar-horario-btn" class="secundario">Cancelar</button>
         </div>
       </div>
 

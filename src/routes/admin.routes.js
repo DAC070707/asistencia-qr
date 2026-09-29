@@ -112,16 +112,26 @@ router.get(
   asyncHandler(adminController.listarIntentosRechazados)
 );
 
-// Horario del trabajador (semanal o rotativo)
+// Horarios del trabajador (versiones con fecha de vigencia)
 router.get(
-  '/api/admin/workers/:id/horario',
+  '/api/admin/workers/:id/horarios',
   requireAdminAuth,
-  asyncHandler(adminController.obtenerHorarioTrabajador)
+  asyncHandler(adminController.listarHorariosTrabajador)
+);
+router.post(
+  '/api/admin/workers/:id/horarios',
+  requireAdminAuth,
+  asyncHandler(adminController.crearHorarioTrabajador)
 );
 router.put(
-  '/api/admin/workers/:id/horario',
+  '/api/admin/workers/:id/horarios/:versionId',
   requireAdminAuth,
-  asyncHandler(adminController.guardarHorarioTrabajador)
+  asyncHandler(adminController.actualizarHorarioTrabajador)
+);
+router.delete(
+  '/api/admin/workers/:id/horarios/:versionId',
+  requireAdminAuth,
+  asyncHandler(adminController.eliminarHorarioTrabajador)
 );
 
 // Excepciones puntuales de horario

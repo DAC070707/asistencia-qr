@@ -1,5 +1,6 @@
 const db = require('../config/db');
-const { calcularHorasPendientes, clasificarEntrada, clasificarSalida } = require('../utils/overtime');
+const { calcularHorasPendientes, calcularHorasExtra, clasificarEntrada, clasificarSalida } = require('../utils/overtime');
+const { hoyLima } = require('../utils/limaDate');
 
 function soloFecha(valor) {
   return typeof valor === 'string' ? valor.slice(0, 10) : new Date(valor).toISOString().slice(0, 10);
@@ -22,10 +23,20 @@ function horarioDePlantilla(plantilla) {
   };
 }
 
+// Version de horario vigente de un trabajador en una fecha: la de mayor
+// vigente_desde que sea <= fecha. null si todavia no tenia horario.
+async function versionVigente(workerId, fechaTxt) {
+  return db('horario_versiones')
+    .where({ worker_id: workerId })
+    .andWhere('vigente_desde', '<=', fechaTxt)
+    .orderBy('vigente_desde', 'desc')
+    .first();
+}
+
 // Resuelve el horario esperado de UN trabajador para UNA fecha especifica.
-// Devuelve null si no hay forma de determinarlo (sin tipo_horario asignado,
-// o datos incompletos). El orden de prioridad es: excepcion puntual > tipo
-// de horario del trabajador (semanal o rotativo).
+// Devuelve null si no hay forma de determinarlo (sin horario vigente a esa
+// fecha, o datos incompletos). El orden de prioridad es: excepcion puntual >
+// version de horario vigente a esa fecha (semanal o rotativo).
 async function resolverHorarioDelDia(workerId, fecha) {
   const fechaTxt = soloFecha(fecha);
 
@@ -41,21 +52,21 @@ async function resolverHorarioDelDia(workerId, fecha) {
     return { libre: false, horaEntrada: excepcion.hora_entrada, horaSalida: excepcion.hora_salida };
   }
 
-  const worker = await db('workers').where({ id: workerId }).first();
-  if (!worker || !worker.tipo_horario) return null;
+  const version = await versionVigente(workerId, fechaTxt);
+  if (!version) return null;
 
-  if (worker.tipo_horario === 'semanal') {
+  if (version.tipo === 'semanal') {
     const dia = diaSemanaDeFecha(fechaTxt);
     const fila = await db('horarios_semanales')
-      .where({ worker_id: workerId, dia_semana: dia })
+      .where({ version_id: version.id, dia_semana: dia })
       .first();
     if (!fila) return null;
     if (fila.libre) return { libre: true, horaEntrada: null, horaSalida: null };
     return { libre: false, horaEntrada: fila.hora_entrada, horaSalida: fila.hora_salida };
   }
 
-  if (worker.tipo_horario === 'rotativo') {
-    const rotacion = await db('rotaciones').where({ worker_id: workerId }).first();
+  if (version.tipo === 'rotativo') {
+    const rotacion = await db('rotaciones').where({ version_id: version.id }).first();
     if (!rotacion) return null;
     const pasos = await db('rotacion_pasos')
       .where({ rotacion_id: rotacion.id })
@@ -76,92 +87,204 @@ async function resolverHorarioDelDia(workerId, fecha) {
   return null;
 }
 
-// ---- Horario semanal (Nivel 1) ----
+// ---- Versiones de horario (horario con fecha de vigencia) ----
 
-async function obtenerHorarioDeWorker(workerId) {
-  const worker = await db('workers').where({ id: workerId }).first();
-  if (!worker) return null;
+// Todas las versiones de un trabajador, la mas reciente primero, con su
+// contenido y su estado respecto de hoy: 'vigente' | 'programado' | 'anterior'.
+async function listarVersiones(workerId) {
+  const hoy = hoyLima();
+  const versiones = await db('horario_versiones')
+    .where({ worker_id: workerId })
+    .orderBy('vigente_desde', 'desc');
 
-  if (worker.tipo_horario === 'semanal') {
-    const dias = await db('horarios_semanales')
-      .where({ worker_id: workerId })
-      .orderBy('dia_semana', 'asc');
-    return { tipoHorario: 'semanal', semanal: dias, rotacion: null };
-  }
-
-  if (worker.tipo_horario === 'rotativo') {
-    const rotacion = await db('rotaciones').where({ worker_id: workerId }).first();
-    const pasos = rotacion
-      ? await db('rotacion_pasos')
-          .join('plantillas_turno', 'plantillas_turno.id', 'rotacion_pasos.plantilla_id')
-          .where({ rotacion_id: rotacion.id })
-          .orderBy('posicion', 'asc')
-          .select(
-            'rotacion_pasos.posicion',
-            'rotacion_pasos.plantilla_id',
-            'plantillas_turno.nombre as plantilla_nombre'
-          )
-      : [];
-    return {
-      tipoHorario: 'rotativo',
+  const vigente = versiones.find((v) => soloFecha(v.vigente_desde) <= hoy);
+  const resultado = [];
+  for (const v of versiones) {
+    const desde = soloFecha(v.vigente_desde);
+    const item = {
+      id: v.id,
+      vigenteDesde: desde,
+      tipo: v.tipo,
+      estado: desde > hoy ? 'programado' : v === vigente ? 'vigente' : 'anterior',
       semanal: null,
-      rotacion: rotacion ? { fechaAncla: rotacion.fecha_ancla, pasos } : null
+      rotacion: null
     };
+    if (v.tipo === 'semanal') {
+      item.semanal = await db('horarios_semanales')
+        .where({ version_id: v.id })
+        .orderBy('dia_semana', 'asc')
+        .select('dia_semana', 'libre', 'hora_entrada', 'hora_salida');
+    } else {
+      const rotacion = await db('rotaciones').where({ version_id: v.id }).first();
+      const pasos = rotacion
+        ? await db('rotacion_pasos')
+            .join('plantillas_turno', 'plantillas_turno.id', 'rotacion_pasos.plantilla_id')
+            .where({ rotacion_id: rotacion.id })
+            .orderBy('posicion', 'asc')
+            .select(
+              'rotacion_pasos.posicion',
+              'rotacion_pasos.plantilla_id',
+              'plantillas_turno.nombre as plantilla_nombre'
+            )
+        : [];
+      item.rotacion = rotacion ? { fechaAncla: soloFecha(rotacion.fecha_ancla), pasos } : null;
+    }
+    resultado.push(item);
   }
-
-  return { tipoHorario: null, semanal: null, rotacion: null };
+  return resultado;
 }
 
-// dias: array de 7 { diaSemana, libre, horaEntrada, horaSalida }
-async function guardarHorarioSemanal(workerId, dias) {
-  await db.transaction(async (trx) => {
-    await trx('workers').where({ id: workerId }).update({ tipo_horario: 'semanal' });
-    await trx('rotaciones').where({ worker_id: workerId }).del(); // cascada borra los pasos
-    await trx('horarios_semanales').where({ worker_id: workerId }).del();
+async function obtenerVersion(workerId, versionId) {
+  return db('horario_versiones').where({ id: versionId, worker_id: workerId }).first();
+}
+
+// Reemplaza el contenido (dias semanales o rotacion) de una version.
+async function escribirContenidoVersion(trx, version, { tipo, semanal, rotacion }) {
+  await trx('horarios_semanales').where({ version_id: version.id }).del();
+  await trx('rotaciones').where({ version_id: version.id }).del(); // cascada borra los pasos
+
+  if (tipo === 'semanal') {
     await trx('horarios_semanales').insert(
-      dias.map((d) => ({
-        worker_id: workerId,
+      semanal.map((d) => ({
+        worker_id: version.worker_id,
+        version_id: version.id,
         dia_semana: d.diaSemana,
         libre: !!d.libre,
         hora_entrada: d.libre ? null : d.horaEntrada || null,
         hora_salida: d.libre ? null : d.horaSalida || null
       }))
     );
-  });
+    return;
+  }
+
+  const [nueva] = await trx('rotaciones')
+    .insert({ worker_id: version.worker_id, version_id: version.id, fecha_ancla: rotacion.fechaAncla })
+    .returning('*');
+  await trx('rotacion_pasos').insert(
+    rotacion.pasos.map((plantillaId, i) => ({
+      rotacion_id: nueva.id,
+      posicion: i,
+      plantilla_id: plantillaId
+    }))
+  );
 }
 
-// pasos: array ordenado de plantilla_id (la posicion es el indice en el array)
-async function guardarRotacion(workerId, fechaAncla, pasos) {
-  await db.transaction(async (trx) => {
-    await trx('workers').where({ id: workerId }).update({ tipo_horario: 'rotativo' });
-    await trx('horarios_semanales').where({ worker_id: workerId }).del();
+// workers.tipo_horario ya no decide nada; se mantiene como el tipo del
+// horario vigente hoy por compatibilidad.
+async function sincronizarTipoVigente(trx, workerId) {
+  const vigente = await trx('horario_versiones')
+    .where({ worker_id: workerId })
+    .andWhere('vigente_desde', '<=', hoyLima())
+    .orderBy('vigente_desde', 'desc')
+    .first();
+  await trx('workers').where({ id: workerId }).update({ tipo_horario: vigente ? vigente.tipo : null });
+}
 
-    let rotacion = await trx('rotaciones').where({ worker_id: workerId }).first();
-    if (rotacion) {
-      await trx('rotaciones').where({ id: rotacion.id }).update({ fecha_ancla: fechaAncla });
+// Crea una version vigente desde "vigenteDesde". Si ya existe una version con
+// esa misma fecha, se reemplaza su contenido. Devuelve la version.
+async function crearVersion(workerId, { vigenteDesde, tipo, semanal, rotacion }) {
+  return db.transaction(async (trx) => {
+    let version = await trx('horario_versiones')
+      .where({ worker_id: workerId, vigente_desde: vigenteDesde })
+      .first();
+    if (version) {
+      [version] = await trx('horario_versiones').where({ id: version.id }).update({ tipo }).returning('*');
     } else {
-      [rotacion] = await trx('rotaciones')
-        .insert({ worker_id: workerId, fecha_ancla: fechaAncla })
+      [version] = await trx('horario_versiones')
+        .insert({ worker_id: workerId, vigente_desde: vigenteDesde, tipo })
         .returning('*');
     }
-
-    await trx('rotacion_pasos').where({ rotacion_id: rotacion.id }).del();
-    await trx('rotacion_pasos').insert(
-      pasos.map((plantillaId, i) => ({
-        rotacion_id: rotacion.id,
-        posicion: i,
-        plantilla_id: plantillaId
-      }))
-    );
+    await escribirContenidoVersion(trx, version, { tipo, semanal, rotacion });
+    await sincronizarTipoVigente(trx, workerId);
+    return version;
   });
 }
 
-async function quitarHorario(workerId) {
-  await db.transaction(async (trx) => {
-    await trx('workers').where({ id: workerId }).update({ tipo_horario: null });
-    await trx('rotaciones').where({ worker_id: workerId }).del();
-    await trx('horarios_semanales').where({ worker_id: workerId }).del();
+// Edita contenido y/o fecha de una version. Devuelve { version, desdeAnterior }
+// o { conflicto: true } si ya hay otra version con la nueva fecha.
+async function actualizarVersion(workerId, versionId, { vigenteDesde, tipo, semanal, rotacion }) {
+  return db.transaction(async (trx) => {
+    const actual = await trx('horario_versiones').where({ id: versionId, worker_id: workerId }).first();
+    if (!actual) return null;
+    const desdeAnterior = soloFecha(actual.vigente_desde);
+
+    if (vigenteDesde !== desdeAnterior) {
+      const otra = await trx('horario_versiones')
+        .where({ worker_id: workerId, vigente_desde: vigenteDesde })
+        .whereNot({ id: versionId })
+        .first();
+      if (otra) return { conflicto: true };
+    }
+
+    const [version] = await trx('horario_versiones')
+      .where({ id: versionId })
+      .update({ vigente_desde: vigenteDesde, tipo })
+      .returning('*');
+    await escribirContenidoVersion(trx, version, { tipo, semanal, rotacion });
+    await sincronizarTipoVigente(trx, workerId);
+    return { version, desdeAnterior };
   });
+}
+
+// Elimina una version; devuelve la fecha desde la que regia, o null.
+async function eliminarVersion(workerId, versionId) {
+  return db.transaction(async (trx) => {
+    const [borrada] = await trx('horario_versiones')
+      .where({ id: versionId, worker_id: workerId })
+      .del()
+      .returning('*');
+    if (!borrada) return null;
+    await sincronizarTipoVigente(trx, workerId);
+    return soloFecha(borrada.vigente_desde);
+  });
+}
+
+// ---- Recalculo de horas extra ----
+
+// Recalcula horas_extra_25/35 de las marcaciones con salida del trabajador
+// (opcionalmente solo entre desde/hasta), contra el horario vigente en cada
+// fecha. Respeta horas_extra_activas (desactivadas => 0). No toca el estado
+// de aprobacion. Devuelve cuantas filas cambiaron.
+async function recalcularHorasExtra(workerId, { desde, hasta } = {}) {
+  const worker = await db('workers').where({ id: workerId }).first('horas_extra_activas');
+  if (!worker) return 0;
+
+  const query = db('attendance').where({ worker_id: workerId }).whereNotNull('hora_salida');
+  if (desde) query.andWhere('fecha', '>=', desde);
+  if (hasta) query.andWhere('fecha', '<=', hasta);
+  const registros = await query.select('id', 'fecha', 'hora_salida', 'horas_extra_25', 'horas_extra_35');
+
+  let cambios = 0;
+  for (const r of registros) {
+    let extra25 = 0;
+    let extra35 = 0;
+    if (worker.horas_extra_activas) {
+      const horario = await resolverHorarioDelDia(workerId, r.fecha);
+      ({ extra25, extra35 } = calcularHorasExtra({
+        horaSalida: r.hora_salida,
+        horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
+      }));
+    }
+    const distinto =
+      Math.abs((Number(r.horas_extra_25) || 0) - extra25) > 0.005 ||
+      Math.abs((Number(r.horas_extra_35) || 0) - extra35) > 0.005;
+    if (distinto) {
+      await db('attendance').where({ id: r.id }).update({ horas_extra_25: extra25, horas_extra_35: extra35 });
+      cambios++;
+    }
+  }
+  return cambios;
+}
+
+// Trabajadores cuyo horario depende de una plantilla de turno (por rotacion
+// o por excepcion puntual).
+async function trabajadoresQueUsanPlantilla(plantillaId) {
+  const porRotacion = await db('rotacion_pasos')
+    .join('rotaciones', 'rotaciones.id', 'rotacion_pasos.rotacion_id')
+    .where('rotacion_pasos.plantilla_id', plantillaId)
+    .distinct('rotaciones.worker_id');
+  const porExcepcion = await db('horario_excepciones').where({ plantilla_id: plantillaId }).distinct('worker_id');
+  return [...new Set([...porRotacion, ...porExcepcion].map((f) => f.worker_id))];
 }
 
 // ---- Plantillas de turno (por empresa) ----
@@ -248,8 +371,10 @@ async function crearExcepcion(workerId, { fecha, libre, plantillaId, horaEntrada
   return creada;
 }
 
+// Devuelve la excepcion borrada (para recalcular ese dia), o null.
 async function eliminarExcepcion(id, workerId) {
-  return db('horario_excepciones').where({ id, worker_id: workerId }).del();
+  const [borrada] = await db('horario_excepciones').where({ id, worker_id: workerId }).del().returning('*');
+  return borrada || null;
 }
 
 // Decora cada registro de asistencia con horas_pendientes y la clasificacion
@@ -308,8 +433,8 @@ async function decorarConHorario(registros, toleranciaMinutos) {
 // asistencia de un rango de fechas: cada fila es una marcacion real, o una
 // inasistencia (le tocaba trabajar segun su horario y no hay registro), o
 // simplemente no existe (dia de descanso sin marcar, no es inasistencia).
-// Un trabajador sin tipo_horario asignado no genera filas de inasistencia
-// (no hay forma de saber que dia le tocaba) pero sus marcaciones reales si
+// Un dia sin horario vigente no genera fila de inasistencia
+// (no hay forma de saber si le tocaba) pero sus marcaciones reales si
 // aparecen igual. Tampoco se generan inasistencias antes de su fecha_ingreso
 // (o, si no la configuraron, antes de que el trabajador se creara en el
 // sistema) — evita marcar como "no vino" un dia en que todavia no era
@@ -344,6 +469,14 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, su
     fechas.push(cursor.toISOString().slice(0, 10));
   }
 
+  // Solo pueden tener inasistencias quienes tienen algun horario o excepcion;
+  // el resto se salta sin consultar dia por dia.
+  const ids = workers.map((w) => w.id);
+  const conHorario = new Set([
+    ...(await db('horario_versiones').whereIn('worker_id', ids).distinct('worker_id')).map((f) => f.worker_id),
+    ...(await db('horario_excepciones').whereIn('worker_id', ids).distinct('worker_id')).map((f) => f.worker_id)
+  ]);
+
   const filas = [];
   for (const worker of workers) {
     const pisoFecha = worker.fecha_ingreso ? soloFecha(worker.fecha_ingreso) : soloFecha(worker.creado_en);
@@ -369,7 +502,7 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, su
         continue;
       }
 
-      if (!worker.tipo_horario) continue;
+      if (!conHorario.has(worker.id)) continue;
       if (fecha < pisoFecha) continue;
 
       const horario = await resolverHorarioDelDia(worker.id, fecha);
@@ -398,10 +531,13 @@ module.exports = {
   construirGrillaAsistencia,
   obtenerToleranciaEmpresa,
   obtenerConfigUbicacion,
-  obtenerHorarioDeWorker,
-  guardarHorarioSemanal,
-  guardarRotacion,
-  quitarHorario,
+  listarVersiones,
+  obtenerVersion,
+  crearVersion,
+  actualizarVersion,
+  eliminarVersion,
+  recalcularHorasExtra,
+  trabajadoresQueUsanPlantilla,
   listarPlantillas,
   crearPlantilla,
   actualizarPlantilla,

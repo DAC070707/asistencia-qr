@@ -8,22 +8,125 @@ function soloHora(valorTime) {
   return valorTime ? valorTime.slice(0, 5) : '';
 }
 
+function hoyLima() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+}
+
+function formatoFechaCorta(yyyyMmDd) {
+  const [y, m, d] = yyyyMmDd.split('-');
+  return `${d}/${m}/${y}`;
+}
+
 const DIAS = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-const workerId = document.getElementById('app').dataset.workerId;
+const DIAS_CORTOS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const app = document.getElementById('app');
+const workerId = app.dataset.workerId;
+const fechaIngreso = app.dataset.fechaIngreso || '';
 
 let plantillas = [];
+let versiones = [];
+let editandoId = null; // null = nuevo horario
 
+const tablaVersiones = document.getElementById('tabla-versiones');
+const editor = document.getElementById('editor');
+const editorTitulo = document.getElementById('editor-titulo');
+const editorError = document.getElementById('editor-error');
+const vigenteDesdeInput = document.getElementById('vigente-desde-input');
 const tablaSemanal = document.getElementById('tabla-semanal');
 const bloqueSemanal = document.getElementById('bloque-semanal');
 const bloqueRotativo = document.getElementById('bloque-rotativo');
-const sinHorarioMsg = document.getElementById('sin-horario-msg');
 const anclaInput = document.getElementById('ancla-input');
 const pasosContainer = document.getElementById('pasos-container');
+
+// ---------- Lista de horarios ----------
+
+// "Lun–Vie 09:00–19:00 · Sáb libre · Dom libre": agrupa dias seguidos iguales.
+function resumenSemanal(semanal) {
+  const porDia = {};
+  (semanal || []).forEach((d) => {
+    porDia[d.dia_semana] = d.libre ? 'libre' : `${soloHora(d.hora_entrada)}–${soloHora(d.hora_salida)}`;
+  });
+  const grupos = [];
+  for (let dia = 0; dia < 7; dia++) {
+    const valor = porDia[dia] || '—';
+    const ultimo = grupos[grupos.length - 1];
+    if (ultimo && ultimo.valor === valor && ultimo.hasta === dia - 1) ultimo.hasta = dia;
+    else grupos.push({ desde: dia, hasta: dia, valor });
+  }
+  return grupos
+    .map((g) => {
+      const dias = g.desde === g.hasta ? DIAS_CORTOS[g.desde] : `${DIAS_CORTOS[g.desde]}–${DIAS_CORTOS[g.hasta]}`;
+      return `${dias} ${g.valor}`;
+    })
+    .join(' · ');
+}
+
+function resumenRotacion(rotacion) {
+  if (!rotacion || !rotacion.pasos.length) return 'Sin pasos';
+  const nombres = rotacion.pasos.map((p) => p.plantilla_nombre).join(' → ');
+  return `Ciclo de ${rotacion.pasos.length} día(s) desde ${formatoFechaCorta(rotacion.fechaAncla)}: ${nombres}`;
+}
+
+const ESTADOS = {
+  vigente: '<span class="badge badge-aprobado">Vigente</span>',
+  programado: '<span class="badge badge-pendiente">Programado</span>',
+  anterior: '<span class="badge" style="background:var(--border); color:var(--muted);">Anterior</span>'
+};
+
+function renderVersiones() {
+  if (versiones.length === 0) {
+    tablaVersiones.innerHTML =
+      '<tr><td colspan="5">Sin horario asignado. No se calcularán horas extra, tardanzas ni inasistencias hasta que agregues uno.</td></tr>';
+    return;
+  }
+  tablaVersiones.innerHTML = versiones
+    .map(
+      (v) => `
+      <tr data-id="${v.id}">
+        <td><strong>${formatoFechaCorta(v.vigenteDesde)}</strong></td>
+        <td>${v.tipo === 'semanal' ? 'Semanal' : 'Rotativo'}</td>
+        <td>${escapeHtml(v.tipo === 'semanal' ? resumenSemanal(v.semanal) : resumenRotacion(v.rotacion))}</td>
+        <td>${ESTADOS[v.estado] || ''}</td>
+        <td style="white-space:nowrap;">
+          <button type="button" class="boton-mini secundario editar-version-btn">Editar</button>
+          <button type="button" class="boton-mini secundario eliminar-version-btn">Eliminar</button>
+        </td>
+      </tr>`
+    )
+    .join('');
+}
+
+tablaVersiones.addEventListener('click', async (e) => {
+  const fila = e.target.closest('tr[data-id]');
+  if (!fila) return;
+  const version = versiones.find((v) => String(v.id) === fila.dataset.id);
+
+  if (e.target.classList.contains('editar-version-btn')) {
+    abrirEditor(version);
+    return;
+  }
+
+  if (e.target.classList.contains('eliminar-version-btn')) {
+    if (!confirm(`¿Eliminar el horario que aplica desde el ${formatoFechaCorta(version.vigenteDesde)}? Las horas extra de esas fechas se recalcularán.`)) {
+      return;
+    }
+    const resp = await fetch(`/api/admin/workers/${workerId}/horarios/${version.id}`, { method: 'DELETE' });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      alert(data.error || 'No se pudo eliminar el horario');
+      return;
+    }
+    versiones = await resp.json();
+    renderVersiones();
+    if (editandoId === version.id) cerrarEditor();
+  }
+});
+
+// ---------- Editor ----------
 
 function mostrarBloque(tipo) {
   bloqueSemanal.hidden = tipo !== 'semanal';
   bloqueRotativo.hidden = tipo !== 'rotativo';
-  sinHorarioMsg.hidden = !!tipo;
 }
 
 function filaSemanalHtml(dia, datos) {
@@ -74,7 +177,7 @@ function renderPasos(pasos) {
     pasosContainer.innerHTML = filaPasoHtml(plantillas[0]?.id);
     return;
   }
-  pasosContainer.innerHTML = pasos
+  pasosContainer.innerHTML = [...pasos]
     .sort((a, b) => a.posicion - b.posicion)
     .map((p) => filaPasoHtml(p.plantilla_id))
     .join('');
@@ -94,67 +197,109 @@ document.querySelectorAll('input[name="tipo-horario"]').forEach((radio) => {
   radio.addEventListener('change', () => mostrarBloque(radio.value));
 });
 
+// version: la que se edita, o null para un horario nuevo. Un horario nuevo
+// parte del contenido del vigente (asi solo se cambia lo que difiere).
+function abrirEditor(version) {
+  editandoId = version ? version.id : null;
+  editorError.innerHTML = '';
+
+  const base = version || versiones.find((v) => v.estado === 'vigente') || versiones[0] || null;
+  const tipo = base ? base.tipo : 'semanal';
+
+  if (version) {
+    editorTitulo.textContent = `Editar horario que aplica desde el ${formatoFechaCorta(version.vigenteDesde)}`;
+    vigenteDesdeInput.value = version.vigenteDesde;
+  } else {
+    editorTitulo.textContent = 'Nuevo horario';
+    vigenteDesdeInput.value = versiones.length === 0 && fechaIngreso ? fechaIngreso : hoyLima();
+  }
+
+  document.querySelector(`input[name="tipo-horario"][value="${tipo}"]`).checked = true;
+  mostrarBloque(tipo);
+  renderSemanal(base?.semanal);
+  if (base?.rotacion) {
+    anclaInput.value = base.rotacion.fechaAncla;
+    renderPasos(base.rotacion.pasos);
+  } else {
+    anclaInput.value = vigenteDesdeInput.value;
+    renderPasos(null);
+  }
+
+  editor.hidden = false;
+  editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function cerrarEditor() {
+  editor.hidden = true;
+  editandoId = null;
+}
+
+document.getElementById('nuevo-horario-btn').addEventListener('click', () => abrirEditor(null));
+document.getElementById('cancelar-horario-btn').addEventListener('click', cerrarEditor);
+
+document.getElementById('guardar-horario-btn').addEventListener('click', async () => {
+  editorError.innerHTML = '';
+  const tipo = document.querySelector('input[name="tipo-horario"]:checked')?.value;
+  const body = { vigenteDesde: vigenteDesdeInput.value, tipo };
+
+  if (tipo === 'semanal') {
+    body.semanal = [...tablaSemanal.querySelectorAll('tr')].map((fila) => ({
+      diaSemana: Number(fila.dataset.dia),
+      libre: fila.querySelector('.input-libre').checked,
+      horaEntrada: fila.querySelector('.input-entrada').value,
+      horaSalida: fila.querySelector('.input-salida').value
+    }));
+  } else if (tipo === 'rotativo') {
+    body.rotacion = {
+      fechaAncla: anclaInput.value,
+      pasos: [...pasosContainer.querySelectorAll('.input-paso-plantilla')].map((s) => Number(s.value))
+    };
+  }
+
+  // Un horario nuevo con la misma fecha que uno existente lo reemplaza.
+  if (!editandoId) {
+    const mismaFecha = versiones.find((v) => v.vigenteDesde === body.vigenteDesde);
+    if (mismaFecha && !confirm(`Ya hay un horario que aplica desde el ${formatoFechaCorta(body.vigenteDesde)}. ¿Reemplazarlo?`)) {
+      return;
+    }
+  }
+
+  const btn = document.getElementById('guardar-horario-btn');
+  btn.disabled = true;
+  try {
+    const resp = await fetch(
+      editandoId ? `/api/admin/workers/${workerId}/horarios/${editandoId}` : `/api/admin/workers/${workerId}/horarios`,
+      {
+        method: editandoId ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }
+    );
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      editorError.innerHTML = `<div class="error">${escapeHtml(data.error || 'No se pudo guardar el horario')}</div>`;
+      return;
+    }
+    versiones = await resp.json();
+    renderVersiones();
+    cerrarEditor();
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 async function cargarTodo() {
-  const [turnosResp, horarioResp] = await Promise.all([
+  const [turnosResp, versionesResp] = await Promise.all([
     fetch('/api/admin/turnos'),
-    fetch(`/api/admin/workers/${workerId}/horario`)
+    fetch(`/api/admin/workers/${workerId}/horarios`)
   ]);
   plantillas = turnosResp.ok ? await turnosResp.json() : [];
   document.getElementById('exc-plantilla').innerHTML =
     '<option value="">(horario ad-hoc)</option>' + opcionesPlantillas();
 
-  const horario = horarioResp.ok ? await horarioResp.json() : { tipoHorario: null };
-
-  const radio = document.querySelector(`input[name="tipo-horario"][value="${horario.tipoHorario || ''}"]`);
-  if (radio) radio.checked = true;
-  mostrarBloque(horario.tipoHorario);
-
-  renderSemanal(horario.semanal);
-  if (horario.rotacion) {
-    anclaInput.value = new Date(horario.rotacion.fechaAncla).toISOString().slice(0, 10);
-    renderPasos(horario.rotacion.pasos);
-  } else {
-    anclaInput.value = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
-    renderPasos(null);
-  }
+  versiones = versionesResp.ok ? await versionesResp.json() : [];
+  renderVersiones();
 }
-
-async function guardarHorario(tipo, extra) {
-  const resp = await fetch(`/api/admin/workers/${workerId}/horario`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ tipo, ...extra })
-  });
-  if (!resp.ok) {
-    const data = await resp.json().catch(() => ({}));
-    alert(data.error || 'No se pudo guardar el horario');
-    return false;
-  }
-  return true;
-}
-
-document.querySelectorAll('input[name="tipo-horario"]').forEach((radio) => {
-  radio.addEventListener('change', async () => {
-    if (radio.value === '') await guardarHorario(null);
-  });
-});
-
-document.getElementById('guardar-semanal-btn').addEventListener('click', async () => {
-  const semanal = [...tablaSemanal.querySelectorAll('tr')].map((fila) => ({
-    diaSemana: Number(fila.dataset.dia),
-    libre: fila.querySelector('.input-libre').checked,
-    horaEntrada: fila.querySelector('.input-entrada').value,
-    horaSalida: fila.querySelector('.input-salida').value
-  }));
-  const ok = await guardarHorario('semanal', { semanal });
-  if (ok) alert('Horario semanal guardado');
-});
-
-document.getElementById('guardar-rotacion-btn').addEventListener('click', async () => {
-  const pasos = [...pasosContainer.querySelectorAll('.input-paso-plantilla')].map((s) => Number(s.value));
-  const ok = await guardarHorario('rotativo', { rotacion: { fechaAncla: anclaInput.value, pasos } });
-  if (ok) alert('Rotación guardada');
-});
 
 // ---- Excepciones ----
 

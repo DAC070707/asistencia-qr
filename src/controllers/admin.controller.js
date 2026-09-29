@@ -493,9 +493,17 @@ async function exportarExcel(req, res) {
 }
 
 async function listarWorkers(req, res) {
+  // tipo_horario = tipo del horario vigente hoy (null si no tiene).
   const workers = await db('workers')
     .where({ empresa_id: req.admin.empresaId })
-    .orderBy('nombre', 'asc');
+    .orderBy('nombre', 'asc')
+    .select(
+      'workers.*',
+      db.raw(
+        '(select v.tipo from horario_versiones v where v.worker_id = workers.id and v.vigente_desde <= ? order by v.vigente_desde desc limit 1) as tipo_horario',
+        [hoyLima()]
+      )
+    );
   res.json(workers);
 }
 
@@ -543,6 +551,11 @@ async function actualizarWorker(req, res) {
   if (!actualizado) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
+  // Activar/desactivar horas extra recalcula todo su historial
+  // (desactivadas => 0; reactivadas => vuelven a calcularse).
+  if (cambios.horas_extra_activas !== undefined) {
+    await horarioService.recalcularHorasExtra(actualizado.id);
+  }
   res.json(actualizado);
 }
 
@@ -589,14 +602,14 @@ async function cambiarEstadoHorasExtra(req, res) {
   res.json(actualizado);
 }
 
-// ---- Horario del trabajador (semanal o rotativo) ----
+// ---- Horarios del trabajador (versiones con fecha de vigencia) ----
 
-async function obtenerHorarioTrabajador(req, res) {
+async function listarHorariosTrabajador(req, res) {
   const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
-  res.json(await horarioService.obtenerHorarioDeWorker(worker.id));
+  res.json(await horarioService.listarVersiones(worker.id));
 }
 
 async function validarPlantillasDeEmpresa(ids, empresaId) {
@@ -607,54 +620,94 @@ async function validarPlantillasDeEmpresa(ids, empresaId) {
   return filas.length === new Set(ids).size;
 }
 
-async function guardarHorarioTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
-  if (!worker) {
-    return res.status(404).json({ error: 'Trabajador no encontrado' });
-  }
-
-  const { tipo, semanal, rotacion } = req.body;
-
-  if (tipo === null) {
-    await horarioService.quitarHorario(worker.id);
-    return res.json(await horarioService.obtenerHorarioDeWorker(worker.id));
+// Valida { vigenteDesde, tipo, semanal | rotacion } del body. Devuelve
+// { error } o { datos } listo para el servicio.
+async function validarHorarioDelBody(body, empresaId) {
+  const { vigenteDesde, tipo, semanal, rotacion } = body || {};
+  if (!FECHA_REGEX.test(vigenteDesde || '')) {
+    return { error: 'Indica desde qué fecha aplica el horario' };
   }
 
   if (tipo === 'semanal') {
     if (!Array.isArray(semanal) || semanal.length !== 7) {
-      return res.status(400).json({ error: 'Se requieren los 7 dias de la semana' });
+      return { error: 'Se requieren los 7 dias de la semana' };
     }
     const dias = new Set(semanal.map((d) => d.diaSemana));
     if (dias.size !== 7 || [...dias].some((d) => d < 0 || d > 6)) {
-      return res.status(400).json({ error: 'Dias de la semana invalidos o repetidos' });
+      return { error: 'Dias de la semana invalidos o repetidos' };
     }
     for (const d of semanal) {
-      if (!d.libre) {
-        if (!HORA_REGEX.test(d.horaEntrada || '') || !HORA_REGEX.test(d.horaSalida || '')) {
-          return res.status(400).json({ error: 'Hora invalida, usa HH:MM' });
-        }
+      if (!d.libre && (!HORA_REGEX.test(d.horaEntrada || '') || !HORA_REGEX.test(d.horaSalida || ''))) {
+        return { error: 'Hora invalida, usa HH:MM' };
       }
     }
-    await horarioService.guardarHorarioSemanal(worker.id, semanal);
-    return res.json(await horarioService.obtenerHorarioDeWorker(worker.id));
+    return { datos: { vigenteDesde, tipo, semanal } };
   }
 
   if (tipo === 'rotativo') {
-    if (!rotacion || !FECHA_REGEX.test(rotacion.fechaAncla)) {
-      return res.status(400).json({ error: 'Fecha ancla invalida' });
+    if (!rotacion || !FECHA_REGEX.test(rotacion.fechaAncla || '')) {
+      return { error: 'Fecha ancla invalida' };
     }
     if (!Array.isArray(rotacion.pasos) || rotacion.pasos.length === 0) {
-      return res.status(400).json({ error: 'La rotacion necesita al menos un paso' });
+      return { error: 'La rotacion necesita al menos un paso' };
     }
-    const idsValidos = await validarPlantillasDeEmpresa(rotacion.pasos, req.admin.empresaId);
+    const idsValidos = await validarPlantillasDeEmpresa(rotacion.pasos, empresaId);
     if (!idsValidos) {
-      return res.status(400).json({ error: 'Alguna plantilla de turno no existe' });
+      return { error: 'Alguna plantilla de turno no existe' };
     }
-    await horarioService.guardarRotacion(worker.id, rotacion.fechaAncla, rotacion.pasos);
-    return res.json(await horarioService.obtenerHorarioDeWorker(worker.id));
+    return { datos: { vigenteDesde, tipo, rotacion } };
   }
 
-  return res.status(400).json({ error: 'Tipo de horario invalido' });
+  return { error: 'Tipo de horario invalido' };
+}
+
+// Nuevo horario vigente desde una fecha. El horario anterior queda intacto
+// para las fechas previas; las horas extra se recalculan desde esa fecha.
+async function crearHorarioTrabajador(req, res) {
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  if (!worker) {
+    return res.status(404).json({ error: 'Trabajador no encontrado' });
+  }
+  const { error, datos } = await validarHorarioDelBody(req.body, req.admin.empresaId);
+  if (error) return res.status(400).json({ error });
+
+  await horarioService.crearVersion(worker.id, datos);
+  await horarioService.recalcularHorasExtra(worker.id, { desde: datos.vigenteDesde });
+  res.status(201).json(await horarioService.listarVersiones(worker.id));
+}
+
+async function actualizarHorarioTrabajador(req, res) {
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  if (!worker) {
+    return res.status(404).json({ error: 'Trabajador no encontrado' });
+  }
+  const { error, datos } = await validarHorarioDelBody(req.body, req.admin.empresaId);
+  if (error) return res.status(400).json({ error });
+
+  const resultado = await horarioService.actualizarVersion(worker.id, req.params.versionId, datos);
+  if (!resultado) {
+    return res.status(404).json({ error: 'Horario no encontrado' });
+  }
+  if (resultado.conflicto) {
+    return res.status(409).json({ error: 'Ya hay otro horario que aplica desde esa fecha' });
+  }
+
+  const desde = [datos.vigenteDesde, resultado.desdeAnterior].sort()[0];
+  await horarioService.recalcularHorasExtra(worker.id, { desde });
+  res.json(await horarioService.listarVersiones(worker.id));
+}
+
+async function eliminarHorarioTrabajador(req, res) {
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  if (!worker) {
+    return res.status(404).json({ error: 'Trabajador no encontrado' });
+  }
+  const desde = await horarioService.eliminarVersion(worker.id, req.params.versionId);
+  if (!desde) {
+    return res.status(404).json({ error: 'Horario no encontrado' });
+  }
+  await horarioService.recalcularHorasExtra(worker.id, { desde });
+  res.json(await horarioService.listarVersiones(worker.id));
 }
 
 // ---- Plantillas de turno ----
@@ -696,6 +749,9 @@ async function actualizarTurno(req, res) {
   );
   if (!actualizada) {
     return res.status(404).json({ error: 'Turno no encontrado' });
+  }
+  for (const workerId of await horarioService.trabajadoresQueUsanPlantilla(actualizada.id)) {
+    await horarioService.recalcularHorasExtra(workerId);
   }
   res.json(actualizada);
 }
@@ -753,6 +809,7 @@ async function crearExcepcionTrabajador(req, res) {
     horaSalida,
     motivo
   });
+  await horarioService.recalcularHorasExtra(worker.id, { desde: fecha, hasta: fecha });
   res.status(201).json(creada);
 }
 
@@ -761,10 +818,12 @@ async function eliminarExcepcionTrabajador(req, res) {
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
-  const borrados = await horarioService.eliminarExcepcion(req.params.excepcionId, worker.id);
-  if (!borrados) {
+  const borrada = await horarioService.eliminarExcepcion(req.params.excepcionId, worker.id);
+  if (!borrada) {
     return res.status(404).json({ error: 'Excepcion no encontrada' });
   }
+  const fecha = formatoFecha(borrada.fecha);
+  await horarioService.recalcularHorasExtra(worker.id, { desde: fecha, hasta: fecha });
   res.json({ ok: true });
 }
 
@@ -794,8 +853,10 @@ module.exports = {
   crearSucursal,
   actualizarSucursal,
   listarIntentosRechazados,
-  obtenerHorarioTrabajador,
-  guardarHorarioTrabajador,
+  listarHorariosTrabajador,
+  crearHorarioTrabajador,
+  actualizarHorarioTrabajador,
+  eliminarHorarioTrabajador,
   listarTurnos,
   crearTurno,
   actualizarTurno,
