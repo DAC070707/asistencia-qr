@@ -65,6 +65,48 @@
       </div>
 
       <div class="card">
+        <h2>Obreros</h2>
+        <p class="card-sub">Para empresas de construcción civil, minería u otras con obreros. Al activarlo podrás marcar a cada trabajador como empleado u obrero, asignar a los obreros jornadas típicas (6x1, 5x2) o atípicas (14x7, 4x3, 21x14, 20x10…) y verlos por separado en los reportes.</p>
+        <div class="fila-acciones">
+          <label style="margin:0; font-weight:500; text-transform:none; display:flex; align-items:center; gap:8px;">
+            <input type="checkbox" id="obreros-activo" />
+            Gestionar obreros
+          </label>
+        </div>
+        <div id="obreros-opciones" hidden>
+          <div class="fila-acciones">
+            <label style="margin:0;">Régimen de los obreros
+              <select id="obreros-regimen" style="margin:0; max-width:220px;">
+                <option value="construccion_civil">Construcción civil</option>
+                <option value="mineria">Minería</option>
+                <option value="general">General</option>
+              </select>
+            </label>
+          </div>
+          <p class="card-sub" style="margin-bottom:6px;">Recargo de horas extra: el 1er tramo son las 2 primeras horas extra del día y el 2do, las siguientes.</p>
+          <div class="fila-acciones">
+            <label style="margin:0;">Empleados · 1er tramo (%)
+              <input type="number" id="pct-emp-1" min="0" max="300" step="1" style="max-width:90px; margin:0;" />
+            </label>
+            <label style="margin:0;">2do tramo (%)
+              <input type="number" id="pct-emp-2" min="0" max="300" step="1" style="max-width:90px; margin:0;" />
+            </label>
+            <label style="margin:0;">Obreros · 1er tramo (%)
+              <input type="number" id="pct-obr-1" min="0" max="300" step="1" style="max-width:90px; margin:0;" />
+            </label>
+            <label style="margin:0;">2do tramo (%)
+              <input type="number" id="pct-obr-2" min="0" max="300" step="1" style="max-width:90px; margin:0;" />
+            </label>
+          </div>
+          <p class="card-sub" id="obreros-nota" style="font-size:.8rem;"></p>
+        </div>
+        <div class="fila-acciones" style="margin-bottom:0;">
+          <button id="obreros-btn" class="secundario">Guardar</button>
+        </div>
+        <div id="obreros-error"></div>
+      </div>
+
+      <div class="card">
         <div class="card-head">
           <h2 style="margin:0;">Sucursales</h2>
         </div>

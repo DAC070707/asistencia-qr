@@ -13,7 +13,7 @@
   <div class="app-shell">
     <%- include('../partials/sidebar', { active: 'trabajadores' }) %>
 
-    <main class="main" id="app" data-worker-id="<%= worker.id %>" data-fecha-ingreso="<%= worker.fecha_ingreso ? new Date(worker.fecha_ingreso).toISOString().slice(0, 10) : '' %>">
+    <main class="main" id="app" data-worker-id="<%= worker.id %>" data-tipo-trabajador="<%= worker.tipo_trabajador %>" data-fecha-ingreso="<%= worker.fecha_ingreso ? new Date(worker.fecha_ingreso).toISOString().slice(0, 10) : '' %>">
       <a href="/admin/trabajadores" class="back-link">← Volver a trabajadores</a>
 
       <div class="topbar">
@@ -53,6 +53,24 @@
           <label style="margin:0; font-weight:500; text-transform:none;">
             <input type="radio" name="tipo-horario" value="rotativo" /> Rotativo
           </label>
+          <label style="margin:0; font-weight:500; text-transform:none;" id="opcion-ciclo" hidden>
+            <input type="radio" name="tipo-horario" value="ciclo" /> Jornada atípica (N x M)
+          </label>
+        </div>
+
+        <div id="presets-obrero" class="presets-obrero" hidden>
+          <span class="presets-titulo">Jornadas de obrero:</span>
+          <span class="presets-grupo">Típicas
+            <button type="button" class="boton-mini secundario preset-btn" data-preset="6x1">6x1</button>
+            <button type="button" class="boton-mini secundario preset-btn" data-preset="5x2">5x2</button>
+          </span>
+          <span class="presets-grupo">Atípicas
+            <button type="button" class="boton-mini secundario preset-btn" data-preset="14x7">14x7</button>
+            <button type="button" class="boton-mini secundario preset-btn" data-preset="4x3">4x3</button>
+            <button type="button" class="boton-mini secundario preset-btn" data-preset="21x14">21x14</button>
+            <button type="button" class="boton-mini secundario preset-btn" data-preset="20x10">20x10</button>
+            <button type="button" class="boton-mini secundario preset-btn" data-preset="otra">Otra</button>
+          </span>
         </div>
 
         <div id="bloque-semanal" hidden>
@@ -69,6 +87,49 @@
           <p class="card-sub" style="margin-bottom:8px;">Secuencia de pasos — se repite cada N días (N = cantidad de pasos que agregues):</p>
           <div id="pasos-container" style="display:flex; flex-direction:column; gap:8px; margin-bottom:12px;"></div>
           <button type="button" id="agregar-paso-btn" class="secundario">+ Agregar paso</button>
+        </div>
+
+        <div id="bloque-ciclo" hidden>
+          <div class="fila-acciones">
+            <label style="margin:0;">Días de trabajo
+              <input type="number" id="ciclo-trabajo" min="1" max="60" step="1" style="max-width:90px; margin:0;" />
+            </label>
+            <label style="margin:0;">Días de descanso
+              <input type="number" id="ciclo-descanso" min="0" max="60" step="1" style="max-width:90px; margin:0;" />
+            </label>
+            <label style="margin:0;">Primer día de trabajo (día de subida)
+              <input type="date" id="ciclo-inicio" style="max-width:180px; margin:0;" />
+            </label>
+          </div>
+          <div class="fila-acciones">
+            <label style="margin:0;">Entrada
+              <input type="time" id="ciclo-entrada" style="margin:0;" />
+            </label>
+            <label style="margin:0;">Salida
+              <input type="time" id="ciclo-salida" style="margin:0;" />
+            </label>
+            <label style="margin:0;">Refrigerio (min)
+              <input type="number" id="ciclo-refrigerio" min="0" max="240" step="5" style="max-width:90px; margin:0;" />
+            </label>
+          </div>
+          <div class="fila-acciones">
+            <label style="margin:0; font-weight:500; text-transform:none; display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" id="ciclo-alterna" /> Alternar turno día y noche
+            </label>
+          </div>
+          <div class="fila-acciones" id="ciclo-noche" hidden>
+            <label style="margin:0;">Días en turno día
+              <input type="number" id="ciclo-dias-dia" min="0" max="59" step="1" style="max-width:90px; margin:0;" />
+            </label>
+            <label style="margin:0;">Noche · entrada
+              <input type="time" id="ciclo-noche-entrada" style="margin:0;" />
+            </label>
+            <label style="margin:0;">Noche · salida
+              <input type="time" id="ciclo-noche-salida" style="margin:0;" />
+            </label>
+          </div>
+          <div id="ciclo-legal"></div>
+          <div id="ciclo-calendario" class="ciclo-calendario"></div>
         </div>
 
         <div class="fila-acciones" style="margin-top:14px; margin-bottom:0;">

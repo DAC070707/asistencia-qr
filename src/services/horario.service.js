@@ -1,6 +1,14 @@
 const db = require('../config/db');
-const { calcularHorasPendientes, calcularHorasExtra, clasificarEntrada, clasificarSalida } = require('../utils/overtime');
+const {
+  calcularHorasPendientes,
+  calcularHorasExtra,
+  calcularHorasNocturnas,
+  clasificarEntrada,
+  clasificarSalida,
+  cruzaMedianoche
+} = require('../utils/overtime');
 const { hoyLima } = require('../utils/limaDate');
+const ciclos = require('../utils/ciclo');
 
 function soloFecha(valor) {
   return typeof valor === 'string' ? valor.slice(0, 10) : new Date(valor).toISOString().slice(0, 10);
@@ -54,6 +62,11 @@ async function resolverHorarioDelDia(workerId, fecha) {
 
   const version = await versionVigente(workerId, fechaTxt);
   if (!version) return null;
+
+  if (version.tipo === 'ciclo') {
+    const fila = await db('horario_ciclos').where({ version_id: version.id }).first();
+    return fila ? ciclos.horarioDeCiclo(ciclos.desdeFila(fila), fechaTxt) : null;
+  }
 
   if (version.tipo === 'semanal') {
     const dia = diaSemanaDeFecha(fechaTxt);
@@ -109,7 +122,9 @@ async function listarVersiones(workerId) {
       semanal: null,
       rotacion: null
     };
-    if (v.tipo === 'semanal') {
+    if (v.tipo === 'ciclo') {
+      // se completa abajo
+    } else if (v.tipo === 'semanal') {
       item.semanal = await db('horarios_semanales')
         .where({ version_id: v.id })
         .orderBy('dia_semana', 'asc')
@@ -129,6 +144,11 @@ async function listarVersiones(workerId) {
         : [];
       item.rotacion = rotacion ? { fechaAncla: soloFecha(rotacion.fecha_ancla), pasos } : null;
     }
+    if (v.tipo === 'ciclo') {
+      const fila = await db('horario_ciclos').where({ version_id: v.id }).first();
+      item.ciclo = ciclos.desdeFila(fila);
+      item.legal = item.ciclo ? ciclos.resumenLegal(item.ciclo) : null;
+    }
     resultado.push(item);
   }
   return resultado;
@@ -139,9 +159,26 @@ async function obtenerVersion(workerId, versionId) {
 }
 
 // Reemplaza el contenido (dias semanales o rotacion) de una version.
-async function escribirContenidoVersion(trx, version, { tipo, semanal, rotacion }) {
+async function escribirContenidoVersion(trx, version, { tipo, semanal, rotacion, ciclo }) {
   await trx('horarios_semanales').where({ version_id: version.id }).del();
   await trx('rotaciones').where({ version_id: version.id }).del(); // cascada borra los pasos
+  await trx('horario_ciclos').where({ version_id: version.id }).del();
+
+  if (tipo === 'ciclo') {
+    await trx('horario_ciclos').insert({
+      version_id: version.id,
+      fecha_inicio: ciclo.fechaInicio,
+      dias_trabajo: ciclo.diasTrabajo,
+      dias_descanso: ciclo.diasDescanso,
+      hora_entrada: ciclo.horaEntrada,
+      hora_salida: ciclo.horaSalida,
+      refrigerio_min: ciclo.refrigerioMin || 0,
+      dias_turno_dia: ciclo.diasTurnoDia ?? null,
+      noche_hora_entrada: ciclo.diasTurnoDia != null ? ciclo.nocheHoraEntrada : null,
+      noche_hora_salida: ciclo.diasTurnoDia != null ? ciclo.nocheHoraSalida : null
+    });
+    return;
+  }
 
   if (tipo === 'semanal') {
     await trx('horarios_semanales').insert(
@@ -182,7 +219,7 @@ async function sincronizarTipoVigente(trx, workerId) {
 
 // Crea una version vigente desde "vigenteDesde". Si ya existe una version con
 // esa misma fecha, se reemplaza su contenido. Devuelve la version.
-async function crearVersion(workerId, { vigenteDesde, tipo, semanal, rotacion }) {
+async function crearVersion(workerId, { vigenteDesde, tipo, semanal, rotacion, ciclo }) {
   return db.transaction(async (trx) => {
     let version = await trx('horario_versiones')
       .where({ worker_id: workerId, vigente_desde: vigenteDesde })
@@ -194,7 +231,7 @@ async function crearVersion(workerId, { vigenteDesde, tipo, semanal, rotacion })
         .insert({ worker_id: workerId, vigente_desde: vigenteDesde, tipo })
         .returning('*');
     }
-    await escribirContenidoVersion(trx, version, { tipo, semanal, rotacion });
+    await escribirContenidoVersion(trx, version, { tipo, semanal, rotacion, ciclo });
     await sincronizarTipoVigente(trx, workerId);
     return version;
   });
@@ -202,7 +239,7 @@ async function crearVersion(workerId, { vigenteDesde, tipo, semanal, rotacion })
 
 // Edita contenido y/o fecha de una version. Devuelve { version, desdeAnterior }
 // o { conflicto: true } si ya hay otra version con la nueva fecha.
-async function actualizarVersion(workerId, versionId, { vigenteDesde, tipo, semanal, rotacion }) {
+async function actualizarVersion(workerId, versionId, { vigenteDesde, tipo, semanal, rotacion, ciclo }) {
   return db.transaction(async (trx) => {
     const actual = await trx('horario_versiones').where({ id: versionId, worker_id: workerId }).first();
     if (!actual) return null;
@@ -220,7 +257,7 @@ async function actualizarVersion(workerId, versionId, { vigenteDesde, tipo, sema
       .where({ id: versionId })
       .update({ vigente_desde: vigenteDesde, tipo })
       .returning('*');
-    await escribirContenidoVersion(trx, version, { tipo, semanal, rotacion });
+    await escribirContenidoVersion(trx, version, { tipo, semanal, rotacion, ciclo });
     await sincronizarTipoVigente(trx, workerId);
     return { version, desdeAnterior };
   });
@@ -262,7 +299,9 @@ async function recalcularHorasExtra(workerId, { desde, hasta } = {}) {
       const horario = await resolverHorarioDelDia(workerId, r.fecha);
       ({ extra25, extra35 } = calcularHorasExtra({
         horaSalida: r.hora_salida,
-        horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
+        horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null,
+        fecha: r.fecha,
+        cruzaMedianoche: cruzaMedianoche(horario)
       }));
     }
     const distinto =
@@ -411,14 +450,15 @@ async function decorarConHorario(registros, toleranciaMinutos) {
       const horario = await resolverHorarioDelDia(r.worker_id, r.fecha);
       const entrada = clasificarEntrada({ horaReal: r.creado_en, horario, toleranciaMinutos });
       const salida = r.hora_salida
-        ? clasificarSalida({ horaReal: r.hora_salida, horario })
+        ? clasificarSalida({ horaReal: r.hora_salida, horario, fecha: r.fecha })
         : { estado: null, minutos: null };
       return {
         ...r,
         horas_pendientes: calcularHorasPendientes({
           fecha: r.fecha,
           horaSalida: r.hora_salida,
-          horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
+          horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null,
+          cruzaMedianoche: cruzaMedianoche(horario)
         }),
         entrada_estado: entrada.estado,
         entrada_minutos: entrada.minutos,
@@ -439,10 +479,11 @@ async function decorarConHorario(registros, toleranciaMinutos) {
 // (o, si no la configuraron, antes de que el trabajador se creara en el
 // sistema) — evita marcar como "no vino" un dia en que todavia no era
 // trabajador de la empresa.
-async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, sucursalId }) {
+async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, sucursalId, tipoTrabajador }) {
   const workersQuery = db('workers').where({ empresa_id: empresaId, activo: true });
   if (workerId) workersQuery.andWhere({ id: workerId });
   if (sucursalId) workersQuery.andWhere({ sucursal_id: sucursalId });
+  if (tipoTrabajador) workersQuery.andWhere({ tipo_trabajador: tipoTrabajador });
   const workers = await workersQuery.orderBy('nombre', 'asc');
 
   const toleranciaMinutos = await obtenerToleranciaEmpresa(empresaId);
@@ -452,7 +493,7 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, su
     .andWhere('fecha', '>=', desde)
     .andWhere('fecha', '<=', hasta);
   if (workerId) attendanceQuery.andWhere({ worker_id: workerId });
-  if (sucursalId) attendanceQuery.whereIn('worker_id', workers.map((w) => w.id));
+  if (sucursalId || tipoTrabajador) attendanceQuery.whereIn('worker_id', workers.map((w) => w.id));
   const registrosReales = await attendanceQuery;
 
   const porWorkerFecha = new Map();
@@ -497,6 +538,9 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, su
           tardanzaMinutos: entrada.estado === 'tarde' ? entrada.minutos : null,
           horasExtra25: Number(registro.horas_extra_25) || 0,
           horasExtra35: Number(registro.horas_extra_35) || 0,
+          horasNocturnas: calcularHorasNocturnas({ horaEntrada: registro.creado_en, horaSalida: registro.hora_salida }),
+          turno: horario && !horario.libre ? (horario.turno || (cruzaMedianoche(horario) ? 'noche' : 'dia')) : null,
+          descansoTrabajado: Boolean(horario && horario.libre),
           inasistencia: false
         });
         continue;
@@ -515,6 +559,9 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, su
           tardanzaMinutos: null,
           horasExtra25: 0,
           horasExtra35: 0,
+          horasNocturnas: 0,
+          turno: horario.turno || (cruzaMedianoche(horario) ? 'noche' : 'dia'),
+          descansoTrabajado: false,
           inasistencia: true
         });
       }
@@ -524,11 +571,93 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, su
   return filas;
 }
 
+// Control de ciclo para obreros con jornada atipica (art. 9 D.S. 008-2002-TR):
+// por cada ciclo que se cruza con [desde, hasta], las horas netas trabajadas
+// (refrigerio descontado: el marcado, o el configurado del ciclo si no lo
+// marco) frente al maximo legal de 8 h promedio por dia del ciclo.
+async function controlDeCiclos({ empresaId, desde, hasta, workerId, sucursalId }) {
+  const workersQuery = db('workers').where({ empresa_id: empresaId, activo: true, tipo_trabajador: 'obrero' });
+  if (workerId) workersQuery.andWhere({ id: workerId });
+  if (sucursalId) workersQuery.andWhere({ sucursal_id: sucursalId });
+  const workers = await workersQuery.orderBy('nombre', 'asc');
+  const hoy = hoyLima();
+  const filas = [];
+
+  for (const worker of workers) {
+    const versiones = await db('horario_versiones').where({ worker_id: worker.id }).orderBy('vigente_desde', 'asc');
+    for (let i = 0; i < versiones.length; i++) {
+      const v = versiones[i];
+      if (v.tipo !== 'ciclo') continue;
+      const fila = await db('horario_ciclos').where({ version_id: v.id }).first();
+      if (!fila) continue;
+      const ciclo = ciclos.desdeFila(fila);
+      const L = ciclos.largo(ciclo);
+
+      const vigenteDesde = soloFecha(v.vigente_desde);
+      const siguiente = versiones[i + 1] ? ciclos.sumarDias(soloFecha(versiones[i + 1].vigente_desde), -1) : null;
+      const rangoDesde = desde > vigenteDesde ? desde : vigenteDesde;
+      const rangoHasta = siguiente && siguiente < hasta ? siguiente : hasta;
+      if (rangoDesde > rangoHasta) continue;
+
+      const k0 = ciclos.posicionEnCiclo(ciclo, rangoDesde).numero;
+      const k1 = ciclos.posicionEnCiclo(ciclo, rangoHasta).numero;
+      const inicioTotal = ciclos.sumarDias(ciclo.fechaInicio, k0 * L);
+      const finTotal = ciclos.sumarDias(ciclo.fechaInicio, (k1 + 1) * L - 1);
+      const registros = await db('attendance')
+        .where({ worker_id: worker.id })
+        .whereNotNull('hora_salida')
+        .andWhere('fecha', '>=', inicioTotal)
+        .andWhere('fecha', '<=', finTotal);
+
+      for (let k = k0; k <= k1; k++) {
+        const inicio = ciclos.sumarDias(ciclo.fechaInicio, k * L);
+        const fin = ciclos.sumarDias(inicio, L - 1);
+        let horas = 0;
+        let diasTrabajados = 0;
+        let descansosTrabajados = 0;
+        for (const r of registros) {
+          const fecha = soloFecha(r.fecha);
+          if (fecha < inicio || fecha > fin) continue;
+          const pos = ciclos.posicionEnCiclo(ciclo, fecha);
+          let netas = (new Date(r.hora_salida) - new Date(r.creado_en)) / 3600000;
+          if (r.refrigerio_salida_en && r.refrigerio_regreso_en) {
+            netas -= (new Date(r.refrigerio_regreso_en) - new Date(r.refrigerio_salida_en)) / 3600000;
+          } else if (pos.trabaja) {
+            netas -= ciclo.refrigerioMin / 60;
+          }
+          horas += Math.max(0, netas);
+          diasTrabajados++;
+          if (!pos.trabaja) descansosTrabajados++;
+        }
+        const limite = ciclos.MAX_PROMEDIO_DIARIO * L;
+        filas.push({
+          worker,
+          jornada: `${ciclo.diasTrabajo}x${ciclo.diasDescanso}`,
+          inicio,
+          fin,
+          completo: fin < hoy,
+          diasCiclo: L,
+          diasProgramados: ciclo.diasTrabajo,
+          diasTrabajados,
+          descansosTrabajados,
+          horasNetas: Math.round(horas * 100) / 100,
+          promedioDiario: Math.round((horas / L) * 100) / 100,
+          promedioSemanal: Math.round(((horas / L) * 7) * 100) / 100,
+          limiteCiclo: limite,
+          exceso: Math.round(Math.max(0, horas - limite) * 100) / 100
+        });
+      }
+    }
+  }
+  return filas;
+}
+
 module.exports = {
   diaSemanaDeFecha,
   resolverHorarioDelDia,
   decorarConHorario,
   construirGrillaAsistencia,
+  controlDeCiclos,
   obtenerToleranciaEmpresa,
   obtenerConfigUbicacion,
   listarVersiones,

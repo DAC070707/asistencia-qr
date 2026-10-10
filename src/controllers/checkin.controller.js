@@ -207,7 +207,7 @@ async function mostrarCheckin(req, res) {
     return res.render('checkin/form', { token, escaneo, logoEmpresaUrl: `/logo/${codigo.empresa_id}` });
   }
 
-  const registro = await attendanceService.buscarAsistenciaDeHoy(worker.id);
+  const registro = await attendanceService.buscarJornadaAbierta(worker.id);
   return res.render('checkin/marcar', await datosParaVistaMarcar(worker, codigo, registro, null, escaneo));
 }
 
@@ -334,7 +334,7 @@ async function marcar(req, res) {
       precisionMetros: geoResultado.precisionMetros,
       userAgent: req.get('user-agent')
     });
-    const registroActual = await attendanceService.buscarAsistenciaDeHoy(worker.id);
+    const registroActual = await attendanceService.buscarJornadaAbierta(worker.id);
     return volverAMarcar(registroActual, geoResultado.mensaje);
   }
 
@@ -383,7 +383,7 @@ async function marcar(req, res) {
     }
 
     const horario = await horarioService.resolverHorarioDelDia(worker.id, resultado.registro.fecha);
-    const clasificacion = clasificarSalida({ horaReal: resultado.registro.hora_salida, horario });
+    const clasificacion = clasificarSalida({ horaReal: resultado.registro.hora_salida, horario, fecha: resultado.registro.fecha });
     return res.render('checkin/confirmado', {
       nombre: worker.nombre,
       logoEmpresaUrl: `/logo/${codigo.empresa_id}`,
@@ -397,7 +397,7 @@ async function marcar(req, res) {
 
   if (accion === 'refrigerio_salida' || accion === 'refrigerio_regreso') {
     const empresa = await db('empresas').where({ id: codigo.empresa_id }).first('controla_refrigerio');
-    const registroActual = await attendanceService.buscarAsistenciaDeHoy(worker.id);
+    const registroActual = await attendanceService.buscarJornadaAbierta(worker.id);
     if (!empresa?.controla_refrigerio) {
       await escaneoService.liberar(escaneoId);
       return volverAMarcar(registroActual, 'Tu empresa no controla el refrigerio.');

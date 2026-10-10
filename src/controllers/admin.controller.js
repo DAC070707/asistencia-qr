@@ -45,13 +45,26 @@ async function obtenerConfiguracionEmpresa(req, res) {
   const empresa = await db('empresas').where({ id: req.admin.empresaId }).first();
   res.json({
     toleranciaEntradaMinutos: empresa.tolerancia_entrada_minutos,
-    controlaRefrigerio: empresa.controla_refrigerio
+    controlaRefrigerio: empresa.controla_refrigerio,
+    gestionaObreros: empresa.gestiona_obreros,
+    regimenObreros: empresa.regimen_obreros,
+    porcentajesExtra: {
+      empleado: { tramo1: empresa.extra_tramo1_empleado, tramo2: empresa.extra_tramo2_empleado },
+      obrero: { tramo1: empresa.extra_tramo1_obrero, tramo2: empresa.extra_tramo2_obrero }
+    }
   });
+}
+
+const REGIMENES_OBREROS = ['general', 'construccion_civil', 'mineria'];
+
+function porcentajeValido(valor) {
+  const n = Number(valor);
+  return Number.isInteger(n) && n >= 0 && n <= 300 ? n : null;
 }
 
 // Actualizacion parcial: cada tarjeta de Configuracion guarda solo lo suyo.
 async function guardarConfiguracionEmpresa(req, res) {
-  const { toleranciaEntradaMinutos, controlaRefrigerio } = req.body;
+  const { toleranciaEntradaMinutos, controlaRefrigerio, gestionaObreros, regimenObreros, porcentajesExtra } = req.body;
   const cambios = {};
 
   if (toleranciaEntradaMinutos !== undefined) {
@@ -63,6 +76,28 @@ async function guardarConfiguracionEmpresa(req, res) {
   }
   if (controlaRefrigerio !== undefined) {
     cambios.controla_refrigerio = Boolean(controlaRefrigerio);
+  }
+  if (gestionaObreros !== undefined) {
+    cambios.gestiona_obreros = Boolean(gestionaObreros);
+  }
+  if (regimenObreros !== undefined) {
+    if (!REGIMENES_OBREROS.includes(regimenObreros)) {
+      return res.status(400).json({ error: 'Régimen de obreros inválido' });
+    }
+    cambios.regimen_obreros = regimenObreros;
+  }
+  if (porcentajesExtra !== undefined) {
+    for (const tipo of ['empleado', 'obrero']) {
+      const p = porcentajesExtra?.[tipo];
+      if (!p) continue;
+      const t1 = porcentajeValido(p.tramo1);
+      const t2 = porcentajeValido(p.tramo2);
+      if (t1 === null || t2 === null) {
+        return res.status(400).json({ error: 'Los porcentajes de horas extra deben ser enteros entre 0 y 300' });
+      }
+      cambios[`extra_tramo1_${tipo}`] = t1;
+      cambios[`extra_tramo2_${tipo}`] = t2;
+    }
   }
   if (Object.keys(cambios).length === 0) {
     return res.status(400).json({ error: 'Nada que guardar' });
@@ -118,8 +153,8 @@ async function actualizarSucursal(req, res) {
 
   if (radioMetros !== undefined || lat !== undefined || lng !== undefined || geolocalizacionActiva !== undefined) {
     const radio = Number(radioMetros);
-    if (!Number.isInteger(radio) || radio < 10 || radio > 500) {
-      return res.status(400).json({ error: 'El radio debe ser un entero entre 10 y 500 metros' });
+    if (!Number.isInteger(radio) || radio < 10 || radio > 5000) {
+      return res.status(400).json({ error: 'El radio debe ser un entero entre 10 y 5000 metros' });
     }
 
     const latNum = lat === '' || lat === null || lat === undefined ? null : Number(lat);
@@ -306,7 +341,8 @@ function parametrosRango(query) {
   if (desde > hasta) {
     return { error: 'La fecha "desde" no puede ser posterior a "hasta"' };
   }
-  return { desde, hasta, workerId, sucursalAsignadaId };
+  const tipoTrabajador = ['empleado', 'obrero'].includes(query.tipo) ? query.tipo : null;
+  return { desde, hasta, workerId, sucursalAsignadaId, tipoTrabajador };
 }
 
 async function asistenciaPorFecha(req, res) {
@@ -344,24 +380,61 @@ function formatoFechaDDMMYYYY(fechaTxt) {
   return `${dia}/${mes}/${anio}`;
 }
 
+const CATEGORIAS = { operario: 'Operario', oficial: 'Oficial', peon: 'Peón' };
+const TIPOS_TRABAJADOR = { empleado: 'Empleado', obrero: 'Obrero' };
+
+// Porcentajes de recargo [tramo 1 (2 primeras horas), tramo 2] por tipo.
+function porcentajesDe(empresa, tipo) {
+  return tipo === 'obrero'
+    ? [empresa.extra_tramo1_obrero, empresa.extra_tramo2_obrero]
+    : [empresa.extra_tramo1_empleado, empresa.extra_tramo2_empleado];
+}
+
+function estiloEncabezado(fila) {
+  fila.eachCell((celda) => {
+    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
+    celda.font = { color: { argb: 'FFFFFFFF' }, bold: true };
+    celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
+    celda.border = BORDES_CELDA;
+  });
+}
+
 async function exportarExcel(req, res) {
   const rango = parametrosRango(req.query);
   if (rango.error) {
     return res.status(400).json({ error: rango.error });
   }
-  const { desde, hasta, workerId, sucursalAsignadaId } = rango;
+  const { desde, hasta, workerId, sucursalAsignadaId, tipoTrabajador } = rango;
+
+  const empresa = await db('empresas').where({ id: req.admin.empresaId }).first();
+  const conRefrigerio = Boolean(empresa.controla_refrigerio);
+  const conObreros = Boolean(empresa.gestiona_obreros);
+  const conCategoria = conObreros && empresa.regimen_obreros === 'construccion_civil';
 
   const filas = await horarioService.construirGrillaAsistencia({
     empresaId: req.admin.empresaId,
     desde,
     hasta,
     workerId,
-    sucursalId: sucursalAsignadaId
+    sucursalId: sucursalAsignadaId,
+    tipoTrabajador: conObreros ? tipoTrabajador : null
   });
-  const empresaNombre = await nombreDeEmpresa(req.admin.empresaId);
-  const { controla_refrigerio: conRefrigerio } = await db('empresas')
-    .where({ id: req.admin.empresaId })
-    .first('controla_refrigerio');
+  const empresaNombre = empresa.nombre;
+
+  // Rotulos de horas extra: con un solo juego de porcentajes van en el
+  // encabezado ("Horas extra 25%"); si empleados y obreros tienen distintos,
+  // el encabezado es generico y cada fila indica sus recargos.
+  const tipoUnico = !conObreros ? 'empleado' : tipoTrabajador || null;
+  const pctEmpleado = porcentajesDe(empresa, 'empleado');
+  const pctObrero = porcentajesDe(empresa, 'obrero');
+  const mismosPct = pctEmpleado[0] === pctObrero[0] && pctEmpleado[1] === pctObrero[1];
+  const pctEncabezado = tipoUnico ? porcentajesDe(empresa, tipoUnico) : mismosPct ? pctEmpleado : null;
+  const tituloTramo1 = pctEncabezado ? `Horas extra ${pctEncabezado[0]}%` : 'Horas extra 1er tramo (2 primeras)';
+  const tituloTramo2 = pctEncabezado ? `Horas extra ${pctEncabezado[1]}%` : 'Horas extra 2do tramo';
+  const recargosDe = (worker) => {
+    const [t1, t2] = porcentajesDe(empresa, worker.tipo_trabajador);
+    return `${t1}% / ${t2}%`;
+  };
 
   const workbook = new ExcelJS.Workbook();
 
@@ -369,38 +442,55 @@ async function exportarExcel(req, res) {
   const resumenPorWorker = new Map();
   for (const f of filas) {
     const acc = resumenPorWorker.get(f.worker.id) || {
-      nombre: f.worker.nombre,
-      dni: f.worker.dni,
+      worker: f.worker,
       inasistencias: 0,
       horasExtra25: 0,
-      horasExtra35: 0
+      horasExtra35: 0,
+      horasNocturnas: 0,
+      descansosTrabajados: 0
     };
     if (f.inasistencia) acc.inasistencias += 1;
     acc.horasExtra25 += f.horasExtra25;
     acc.horasExtra35 += f.horasExtra35;
+    acc.horasNocturnas += f.horasNocturnas || 0;
+    if (f.descansoTrabajado) acc.descansosTrabajados += 1;
     resumenPorWorker.set(f.worker.id, acc);
   }
 
-  const hojaResumen = workbook.addWorksheet('Resumen');
-  hojaResumen.columns = [
+  const columnasResumen = [
     { header: 'Trabajador', key: 'nombre', width: 30 },
-    { header: 'DNI', key: 'dni', width: 14 },
-    { header: 'Inasistencias', key: 'inasistencias', width: 16 },
-    { header: 'Horas extra 25%', key: 'horasExtra25', width: 16 },
-    { header: 'Horas extra 35%', key: 'horasExtra35', width: 16 }
+    { header: 'DNI', key: 'dni', width: 14 }
   ];
-  hojaResumen.getRow(1).eachCell((celda) => {
-    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
-    celda.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-    celda.border = BORDES_CELDA;
-  });
+  if (conObreros) columnasResumen.push({ header: 'Tipo', key: 'tipo', width: 12 });
+  if (conCategoria) columnasResumen.push({ header: 'Categoría', key: 'categoria', width: 12 });
+  columnasResumen.push(
+    { header: 'Inasistencias', key: 'inasistencias', width: 16 },
+    { header: tituloTramo1, key: 'horasExtra25', width: 18 },
+    { header: tituloTramo2, key: 'horasExtra35', width: 18 }
+  );
+  if (!pctEncabezado) columnasResumen.push({ header: 'Recargos', key: 'recargos', width: 14 });
+  if (conObreros) {
+    columnasResumen.push(
+      { header: 'Horas nocturnas (22:00–06:00)', key: 'horasNocturnas', width: 18 },
+      { header: 'Días de descanso trabajados', key: 'descansosTrabajados', width: 18 }
+    );
+  }
+
+  const hojaResumen = workbook.addWorksheet('Resumen');
+  hojaResumen.columns = columnasResumen;
+  estiloEncabezado(hojaResumen.getRow(1));
   for (const [, r] of resumenPorWorker) {
     const fila = hojaResumen.addRow({
-      nombre: r.nombre,
-      dni: r.dni,
+      nombre: r.worker.nombre,
+      dni: r.worker.dni,
+      tipo: TIPOS_TRABAJADOR[r.worker.tipo_trabajador] || '',
+      categoria: CATEGORIAS[r.worker.categoria] || '',
       inasistencias: r.inasistencias,
       horasExtra25: Number(r.horasExtra25.toFixed(2)),
-      horasExtra35: Number(r.horasExtra35.toFixed(2))
+      horasExtra35: Number(r.horasExtra35.toFixed(2)),
+      recargos: recargosDe(r.worker),
+      horasNocturnas: Number(r.horasNocturnas.toFixed(2)),
+      descansosTrabajados: r.descansosTrabajados
     });
     fila.eachCell((celda) => {
       celda.border = BORDES_CELDA;
@@ -408,31 +498,49 @@ async function exportarExcel(req, res) {
   }
 
   // ---- Hoja 2: Detalle (formato solicitado) ----
-  // Las columnas de refrigerio solo existen si la empresa lo controla; sin
-  // ellas el formato es exactamente el de la plantilla original.
+  // Las columnas de refrigerio solo existen si la empresa lo controla, y las
+  // de obreros solo si gestiona obreros; sin ellas el formato es exactamente
+  // el de la plantilla original.
   const columnasDetalle = [
     { ancho: 12, titulo: 'Fecha', valor: (f) => formatoFechaDDMMYYYY(f.fecha), azul: true },
     { ancho: 12, titulo: 'DNI', valor: (f) => f.worker.dni, azul: true },
-    { ancho: 28, titulo: 'Nombre', valor: (f) => f.worker.nombre, azul: true },
+    { ancho: 28, titulo: 'Nombre', valor: (f) => f.worker.nombre, azul: true }
+  ];
+  if (conObreros) {
+    columnasDetalle.push({ ancho: 11, titulo: 'Tipo', valor: (f) => TIPOS_TRABAJADOR[f.worker.tipo_trabajador] || '' });
+  }
+  if (conCategoria) {
+    columnasDetalle.push({ ancho: 11, titulo: 'Categoría', valor: (f) => CATEGORIAS[f.worker.categoria] || '' });
+  }
+  columnasDetalle.push(
     { ancho: 16, titulo: 'Hora entrada (leída)', valor: (f) => formatoHoraLima(f.horaEntrada), amarillo: true },
     { ancho: 12, titulo: 'Tardanza (min)', valor: (f) => f.tardanzaMinutos || '', total: 'tardanza' },
     { ancho: 16, titulo: 'Hora salida (leída)', valor: (f) => formatoHoraLima(f.horaSalida), amarillo: true }
-  ];
+  );
   if (conRefrigerio) {
     columnasDetalle.push(
       { ancho: 16, titulo: 'Salida refrigerio', valor: (f) => formatoHoraLima(f.refrigerioSalida), amarillo: true },
       { ancho: 16, titulo: 'Regreso refrigerio', valor: (f) => formatoHoraLima(f.refrigerioRegreso), amarillo: true }
     );
   }
+  if (conObreros) {
+    columnasDetalle.push(
+      { ancho: 9, titulo: 'Turno', valor: (f) => (f.turno === 'noche' ? 'Noche' : f.turno === 'dia' ? 'Día' : '') },
+      { ancho: 14, titulo: 'Horas nocturnas (22–06)', valor: (f) => f.horasNocturnas || '', total: 'nocturnas' }
+    );
+  }
   columnasDetalle.push(
-    { ancho: 16, titulo: 'Horas extra 25%', valor: (f) => f.horasExtra25 || '', total: 'extra25' },
-    { ancho: 16, titulo: 'Horas extra 35%', valor: (f) => f.horasExtra35 || '', total: 'extra35' },
-    {
-      ancho: 32,
-      titulo: 'Observaciones (Colocar si hubo inasistencia)',
-      valor: (f) => (f.inasistencia ? 'Inasistencia' : '')
-    }
+    { ancho: 16, titulo: tituloTramo1, valor: (f) => f.horasExtra25 || '', total: 'extra25' },
+    { ancho: 16, titulo: tituloTramo2, valor: (f) => f.horasExtra35 || '', total: 'extra35' }
   );
+  if (!pctEncabezado) {
+    columnasDetalle.push({ ancho: 12, titulo: 'Recargos', valor: (f) => recargosDe(f.worker) });
+  }
+  columnasDetalle.push({
+    ancho: 32,
+    titulo: 'Observaciones (Colocar si hubo inasistencia)',
+    valor: (f) => (f.inasistencia ? 'Inasistencia' : f.descansoTrabajado && conObreros ? 'Trabajó en día de descanso' : '')
+  });
 
   const hojaDetalle = workbook.addWorksheet('Detalle');
   hojaDetalle.columns = columnasDetalle.map((c, i) => ({ key: 'c' + i, width: c.ancho }));
@@ -443,15 +551,9 @@ async function exportarExcel(req, res) {
   celdaTitulo.value = `Control de asistencia — General (${empresaNombre})`;
   celdaTitulo.font = { bold: true, size: 13 };
 
-  const filaEncabezado = hojaDetalle.addRow(columnasDetalle.map((c) => c.titulo));
-  filaEncabezado.eachCell((celda) => {
-    celda.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUL_ENCABEZADO } };
-    celda.font = { color: { argb: 'FFFFFFFF' }, bold: true };
-    celda.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
-    celda.border = BORDES_CELDA;
-  });
+  estiloEncabezado(hojaDetalle.addRow(columnasDetalle.map((c) => c.titulo)));
 
-  const totales = { tardanza: 0, extra25: 0, extra35: 0 };
+  const totales = { tardanza: 0, extra25: 0, extra35: 0, nocturnas: 0 };
 
   filas
     .sort((a, b) => (a.fecha === b.fecha ? a.worker.nombre.localeCompare(b.worker.nombre) : a.fecha < b.fecha ? -1 : 1))
@@ -459,6 +561,7 @@ async function exportarExcel(req, res) {
       totales.tardanza += f.tardanzaMinutos || 0;
       totales.extra25 += f.horasExtra25;
       totales.extra35 += f.horasExtra35;
+      totales.nocturnas += f.horasNocturnas || 0;
 
       const fila = hojaDetalle.addRow(columnasDetalle.map((c) => c.valor(f)));
       fila.eachCell((celda) => {
@@ -477,6 +580,7 @@ async function exportarExcel(req, res) {
       if (c.total === 'tardanza') return Number(totales.tardanza.toFixed(0));
       if (c.total === 'extra25') return Number(totales.extra25.toFixed(2));
       if (c.total === 'extra35') return Number(totales.extra35.toFixed(2));
+      if (c.total === 'nocturnas') return Number(totales.nocturnas.toFixed(2));
       return '';
     })
   );
@@ -484,6 +588,68 @@ async function exportarExcel(req, res) {
     celda.font = { bold: true };
     celda.border = BORDES_CELDA;
   });
+
+  // ---- Hoja 3: Control de ciclo (obreros con jornada atipica) ----
+  if (conObreros && tipoTrabajador !== 'empleado') {
+    const ciclosFilas = await horarioService.controlDeCiclos({
+      empresaId: req.admin.empresaId,
+      desde,
+      hasta,
+      workerId,
+      sucursalId: sucursalAsignadaId
+    });
+    if (ciclosFilas.length > 0) {
+      const hojaCiclo = workbook.addWorksheet('Control de ciclo');
+      hojaCiclo.columns = [
+        { header: 'Obrero', key: 'nombre', width: 28 },
+        { header: 'DNI', key: 'dni', width: 12 },
+        { header: 'Jornada', key: 'jornada', width: 10 },
+        { header: 'Ciclo desde', key: 'inicio', width: 12 },
+        { header: 'Ciclo hasta', key: 'fin', width: 12 },
+        { header: 'Estado', key: 'estado', width: 12 },
+        { header: 'Días del ciclo', key: 'diasCiclo', width: 10 },
+        { header: 'Días programados de trabajo', key: 'diasProgramados', width: 14 },
+        { header: 'Días trabajados', key: 'diasTrabajados', width: 11 },
+        { header: 'Descansos trabajados', key: 'descansosTrabajados', width: 12 },
+        { header: 'Horas netas trabajadas', key: 'horasNetas', width: 13 },
+        { header: 'Promedio diario (h)', key: 'promedioDiario', width: 12 },
+        { header: 'Promedio semanal (h)', key: 'promedioSemanal', width: 12 },
+        { header: 'Máximo legal del ciclo (8 h × días)', key: 'limiteCiclo', width: 16 },
+        { header: 'Exceso sobre el promedio legal (h)', key: 'exceso', width: 16 }
+      ];
+      estiloEncabezado(hojaCiclo.getRow(1));
+      for (const c of ciclosFilas) {
+        const fila = hojaCiclo.addRow({
+          nombre: c.worker.nombre,
+          dni: c.worker.dni,
+          jornada: c.jornada,
+          inicio: formatoFechaDDMMYYYY(c.inicio),
+          fin: formatoFechaDDMMYYYY(c.fin),
+          estado: c.completo ? 'Completo' : 'En curso',
+          diasCiclo: c.diasCiclo,
+          diasProgramados: c.diasProgramados,
+          diasTrabajados: c.diasTrabajados,
+          descansosTrabajados: c.descansosTrabajados,
+          horasNetas: c.horasNetas,
+          promedioDiario: c.promedioDiario,
+          promedioSemanal: c.promedioSemanal,
+          limiteCiclo: c.limiteCiclo,
+          exceso: c.exceso
+        });
+        fila.eachCell((celda) => {
+          celda.border = BORDES_CELDA;
+        });
+        if (c.promedioSemanal > 48) {
+          fila.getCell('promedioSemanal').font = { color: { argb: 'FFC00000' }, bold: true };
+        }
+        if (c.exceso > 0) fila.getCell('exceso').font = { color: { argb: 'FFC00000' }, bold: true };
+      }
+      const nota = hojaCiclo.addRow([]);
+      nota.getCell(1).value =
+        'Promedio según art. 9 D.S. 008-2002-TR: horas trabajadas del ciclo ÷ todos los días del ciclo (incluye descansos). Máximo: 8 h diarias / 48 h semanales en promedio. Refrigerio descontado (marcado, o el configurado en la jornada).';
+      nota.getCell(1).font = { italic: true, color: { argb: 'FF666666' } };
+    }
+  }
 
   const buffer = await workbook.xlsx.writeBuffer();
   const nombreArchivo = desde === hasta ? desde : `${desde}_a_${hasta}`;
@@ -509,8 +675,16 @@ async function listarWorkers(req, res) {
 
 async function actualizarWorker(req, res) {
   const { id } = req.params;
-  const { activo, nombre, horas_extra_activas, dispositivo_vinculado, fecha_ingreso, sucursal_id } =
-    req.body;
+  const {
+    activo,
+    nombre,
+    horas_extra_activas,
+    dispositivo_vinculado,
+    fecha_ingreso,
+    sucursal_id,
+    tipo_trabajador,
+    categoria
+  } = req.body;
 
   const cambios = {};
   if (sucursal_id !== undefined) {
@@ -521,6 +695,19 @@ async function actualizarWorker(req, res) {
       if (!sucursal) return res.status(400).json({ error: 'Sucursal invalida' });
       cambios.sucursal_id = sucursal.id;
     }
+  }
+  if (tipo_trabajador !== undefined) {
+    if (!['empleado', 'obrero'].includes(tipo_trabajador)) {
+      return res.status(400).json({ error: 'Tipo de trabajador inválido' });
+    }
+    cambios.tipo_trabajador = tipo_trabajador;
+    if (tipo_trabajador === 'empleado') cambios.categoria = null;
+  }
+  if (categoria !== undefined && cambios.tipo_trabajador !== 'empleado') {
+    if (categoria !== null && categoria !== '' && !Object.keys(CATEGORIAS).includes(categoria)) {
+      return res.status(400).json({ error: 'Categoría inválida' });
+    }
+    cambios.categoria = categoria || null;
   }
   if (typeof activo === 'boolean') cambios.activo = activo;
   if (typeof horas_extra_activas === 'boolean') cambios.horas_extra_activas = horas_extra_activas;
@@ -622,8 +809,13 @@ async function validarPlantillasDeEmpresa(ids, empresaId) {
 
 // Valida { vigenteDesde, tipo, semanal | rotacion } del body. Devuelve
 // { error } o { datos } listo para el servicio.
+function enteroEntre(valor, min, max) {
+  const n = Number(valor);
+  return Number.isInteger(n) && n >= min && n <= max ? n : null;
+}
+
 async function validarHorarioDelBody(body, empresaId) {
-  const { vigenteDesde, tipo, semanal, rotacion } = body || {};
+  const { vigenteDesde, tipo, semanal, rotacion, ciclo } = body || {};
   if (!FECHA_REGEX.test(vigenteDesde || '')) {
     return { error: 'Indica desde qué fecha aplica el horario' };
   }
@@ -656,6 +848,52 @@ async function validarHorarioDelBody(body, empresaId) {
       return { error: 'Alguna plantilla de turno no existe' };
     }
     return { datos: { vigenteDesde, tipo, rotacion } };
+  }
+
+  if (tipo === 'ciclo') {
+    const c = ciclo || {};
+    if (!FECHA_REGEX.test(c.fechaInicio || '')) {
+      return { error: 'Indica el primer día de trabajo del ciclo' };
+    }
+    const diasTrabajo = enteroEntre(c.diasTrabajo, 1, 60);
+    const diasDescanso = enteroEntre(c.diasDescanso, 0, 60);
+    if (diasTrabajo === null || diasDescanso === null) {
+      return { error: 'Días de trabajo (1 a 60) y de descanso (0 a 60) inválidos' };
+    }
+    if (!HORA_REGEX.test(c.horaEntrada || '') || !HORA_REGEX.test(c.horaSalida || '')) {
+      return { error: 'Hora invalida, usa HH:MM' };
+    }
+    const refrigerioMin = c.refrigerioMin === undefined || c.refrigerioMin === '' ? 0 : enteroEntre(c.refrigerioMin, 0, 240);
+    if (refrigerioMin === null) {
+      return { error: 'El refrigerio debe estar entre 0 y 240 minutos' };
+    }
+    let diasTurnoDia = null;
+    if (c.diasTurnoDia !== undefined && c.diasTurnoDia !== null && c.diasTurnoDia !== '') {
+      diasTurnoDia = enteroEntre(c.diasTurnoDia, 0, diasTrabajo - 1);
+      if (diasTurnoDia === null) {
+        return { error: 'Los días en turno día deben ser menos que los días de trabajo' };
+      }
+      if (!HORA_REGEX.test(c.nocheHoraEntrada || '') || !HORA_REGEX.test(c.nocheHoraSalida || '')) {
+        return { error: 'Indica la hora de entrada y salida del turno noche' };
+      }
+    }
+    return {
+      datos: {
+        vigenteDesde,
+        tipo,
+        ciclo: {
+          fechaInicio: c.fechaInicio,
+          diasTrabajo,
+          diasDescanso,
+          horaEntrada: c.horaEntrada.slice(0, 5),
+          horaSalida: c.horaSalida.slice(0, 5),
+          refrigerioMin,
+          diasTurnoDia,
+          nocheHoraEntrada: diasTurnoDia !== null ? c.nocheHoraEntrada.slice(0, 5) : null,
+          nocheHoraSalida: diasTurnoDia !== null ? c.nocheHoraSalida.slice(0, 5) : null
+        }
+      }
+    };
   }
 
   return { error: 'Tipo de horario invalido' };

@@ -101,11 +101,48 @@ async function cargarSucursales() {
 async function cargarConfigRefrigerio() {
   const resp = await fetch('/api/admin/empresa/configuracion');
   if (!resp.ok) return;
-  conRefrigerio = Boolean((await resp.json()).controlaRefrigerio);
+  const config = await resp.json();
+  conRefrigerio = Boolean(config.controlaRefrigerio);
   document.querySelectorAll('.col-refrigerio').forEach((th) => {
     th.hidden = !conRefrigerio;
   });
+
+  // Obreros: filtro por tipo, atajos de semana y rotulos de horas extra.
+  const pe = config.porcentajesExtra?.empleado || { tramo1: 25, tramo2: 35 };
+  const po = config.porcentajesExtra?.obrero || pe;
+  const mismos = !config.gestionaObreros || (pe.tramo1 === po.tramo1 && pe.tramo2 === po.tramo2);
+  document.getElementById('th-extra-1').textContent = mismos ? `Extra ${pe.tramo1}%` : 'Extra 1er tramo';
+  document.getElementById('th-extra-2').textContent = mismos ? `Extra ${pe.tramo2}%` : 'Extra 2do tramo';
+  if (!mismos) {
+    document.getElementById('th-extra-1').title = `Empleados ${pe.tramo1}% · Obreros ${po.tramo1}%`;
+    document.getElementById('th-extra-2').title = `Empleados ${pe.tramo2}% · Obreros ${po.tramo2}%`;
+  }
+  if (config.gestionaObreros) {
+    document.getElementById('tipo-filtro').hidden = false;
+    document.getElementById('semana-atajos').hidden = false;
+  }
 }
+
+// Lunes de la semana de una fecha YYYY-MM-DD (semana de lunes a domingo).
+function lunesDe(fechaTxt) {
+  const d = new Date(`${fechaTxt}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d;
+}
+
+function ponerSemana(desplazamiento) {
+  const hoy = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Lima' }).format(new Date());
+  const lunes = lunesDe(hoy);
+  lunes.setUTCDate(lunes.getUTCDate() + desplazamiento * 7);
+  const domingo = new Date(lunes);
+  domingo.setUTCDate(domingo.getUTCDate() + 6);
+  desdeInput.value = lunes.toISOString().slice(0, 10);
+  hastaInput.value = domingo.toISOString().slice(0, 10);
+  buscar();
+}
+
+document.getElementById('esta-semana-btn').addEventListener('click', () => ponerSemana(0));
+document.getElementById('semana-pasada-btn').addEventListener('click', () => ponerSemana(-1));
 
 function celdasRefrigerioHtml(r) {
   if (!conRefrigerio) return '';
@@ -117,6 +154,8 @@ function paramsActuales() {
   const params = new URLSearchParams({ desde: desdeInput.value, hasta: hastaInput.value });
   if (workerInput.value) params.set('worker_id', workerInput.value);
   if (sucursalInput.value) params.set('sucursal_id', sucursalInput.value);
+  const tipo = document.getElementById('tipo-input').value;
+  if (tipo) params.set('tipo', tipo);
   return params;
 }
 

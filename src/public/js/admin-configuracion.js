@@ -48,7 +48,74 @@ async function cargarConfiguracion() {
   const data = await resp.json();
   document.getElementById('tolerancia-input').value = data.toleranciaEntradaMinutos;
   document.getElementById('refrigerio-activo').checked = data.controlaRefrigerio;
+
+  document.getElementById('obreros-activo').checked = data.gestionaObreros;
+  document.getElementById('obreros-regimen').value = data.regimenObreros;
+  document.getElementById('pct-emp-1').value = data.porcentajesExtra.empleado.tramo1;
+  document.getElementById('pct-emp-2').value = data.porcentajesExtra.empleado.tramo2;
+  document.getElementById('pct-obr-1').value = data.porcentajesExtra.obrero.tramo1;
+  document.getElementById('pct-obr-2').value = data.porcentajesExtra.obrero.tramo2;
+  mostrarOpcionesObreros();
 }
+
+// ---------- Obreros ----------
+
+const NOTAS_REGIMEN = {
+  construccion_civil:
+    'Construcción civil: según el convenio CAPECO–FTCCP el sobretiempo se paga con 60% (horas 9 y 10) y 100% (desde la hora 11). Verifícalo con tu contador.',
+  mineria:
+    'Minería: régimen general de sobretiempo (25% / 35%). Las jornadas atípicas deben respetar el promedio de 8 h diarias y 48 h semanales del ciclo (art. 9 D.S. 008-2002-TR).',
+  general: 'Régimen general: sobretiempo con 25% las 2 primeras horas y 35% las siguientes (D.S. 007-2002-TR).'
+};
+const PCT_POR_REGIMEN = { construccion_civil: [60, 100], mineria: [25, 35], general: [25, 35] };
+
+function mostrarOpcionesObreros() {
+  document.getElementById('obreros-opciones').hidden = !document.getElementById('obreros-activo').checked;
+  document.getElementById('obreros-nota').textContent =
+    NOTAS_REGIMEN[document.getElementById('obreros-regimen').value] || '';
+}
+
+document.getElementById('obreros-activo').addEventListener('change', mostrarOpcionesObreros);
+document.getElementById('obreros-regimen').addEventListener('change', () => {
+  // Sugiere los porcentajes del regimen elegido (se pueden editar).
+  const [t1, t2] = PCT_POR_REGIMEN[document.getElementById('obreros-regimen').value];
+  document.getElementById('pct-obr-1').value = t1;
+  document.getElementById('pct-obr-2').value = t2;
+  mostrarOpcionesObreros();
+});
+
+document.getElementById('obreros-btn').addEventListener('click', async () => {
+  const errorBox = document.getElementById('obreros-error');
+  const btn = document.getElementById('obreros-btn');
+  errorBox.innerHTML = '';
+  btn.disabled = true;
+  const valor = (id) => document.getElementById(id).value;
+  try {
+    const resp = await fetch('/api/admin/empresa/configuracion', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        gestionaObreros: document.getElementById('obreros-activo').checked,
+        regimenObreros: valor('obreros-regimen'),
+        porcentajesExtra: {
+          empleado: { tramo1: valor('pct-emp-1'), tramo2: valor('pct-emp-2') },
+          obrero: { tramo1: valor('pct-obr-1'), tramo2: valor('pct-obr-2') }
+        }
+      })
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      errorBox.innerHTML = `<div class="error">${escapeHtml(data.error || 'No se pudo guardar')}</div>`;
+      return;
+    }
+    btn.textContent = 'Guardado ✓';
+    setTimeout(() => {
+      btn.textContent = 'Guardar';
+    }, 1500);
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 document.getElementById('refrigerio-btn').addEventListener('click', async () => {
   const errorBox = document.getElementById('refrigerio-error');
@@ -146,7 +213,7 @@ function sucursalHtml(s) {
 
       <div class="fila-acciones" style="margin-bottom:0;">
         <label style="margin:0;">Radio permitido (metros)
-          <input type="number" class="suc-radio" min="10" max="500" step="1" value="${s.radioMetros}" style="max-width:100px; margin:0;" />
+          <input type="number" class="suc-radio" min="10" max="5000" step="1" value="${s.radioMetros}" style="max-width:100px; margin:0;" />
         </label>
         <label style="margin:0; font-weight:500; text-transform:none; display:flex; align-items:center; gap:8px;">
           <input type="checkbox" class="suc-activa" ${s.geolocalizacionActiva ? 'checked' : ''} />

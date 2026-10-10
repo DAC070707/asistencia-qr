@@ -37,6 +37,179 @@ const bloqueSemanal = document.getElementById('bloque-semanal');
 const bloqueRotativo = document.getElementById('bloque-rotativo');
 const anclaInput = document.getElementById('ancla-input');
 const pasosContainer = document.getElementById('pasos-container');
+const bloqueCiclo = document.getElementById('bloque-ciclo');
+const tipoTrabajador = app.dataset.tipoTrabajador || 'empleado';
+let esObreroConfigurable = false; // obrero en una empresa que gestiona obreros
+
+// ---------- Jornada atipica (N x M) ----------
+
+const $ = (id) => document.getElementById(id);
+
+function horaDecimal(hhmm) {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h + m / 60;
+}
+
+function horasNetas(entrada, salida, refrigerioMin) {
+  const e = horaDecimal(entrada);
+  const sa = horaDecimal(salida);
+  if (e === null || sa === null) return 0;
+  const bruto = sa > e ? sa - e : sa + 24 - e;
+  return Math.max(0, bruto - (refrigerioMin || 0) / 60);
+}
+
+function leerCiclo() {
+  const alterna = $('ciclo-alterna').checked;
+  return {
+    fechaInicio: $('ciclo-inicio').value,
+    diasTrabajo: Number($('ciclo-trabajo').value),
+    diasDescanso: Number($('ciclo-descanso').value),
+    horaEntrada: $('ciclo-entrada').value,
+    horaSalida: $('ciclo-salida').value,
+    refrigerioMin: Number($('ciclo-refrigerio').value) || 0,
+    diasTurnoDia: alterna ? Number($('ciclo-dias-dia').value) : null,
+    nocheHoraEntrada: alterna ? $('ciclo-noche-entrada').value : null,
+    nocheHoraSalida: alterna ? $('ciclo-noche-salida').value : null
+  };
+}
+
+function llenarCiclo(c) {
+  $('ciclo-trabajo').value = c.diasTrabajo;
+  $('ciclo-descanso').value = c.diasDescanso;
+  $('ciclo-inicio').value = c.fechaInicio;
+  $('ciclo-entrada').value = c.horaEntrada;
+  $('ciclo-salida').value = c.horaSalida;
+  $('ciclo-refrigerio').value = c.refrigerioMin;
+  const alterna = c.diasTurnoDia !== null && c.diasTurnoDia !== undefined;
+  $('ciclo-alterna').checked = alterna;
+  $('ciclo-dias-dia').value = alterna ? c.diasTurnoDia : Math.floor(c.diasTrabajo / 2);
+  $('ciclo-noche-entrada').value = c.nocheHoraEntrada || '19:00';
+  $('ciclo-noche-salida').value = c.nocheHoraSalida || '07:00';
+  renderCicloInfo();
+}
+
+function turnoDelIndice(c, i) {
+  if (i >= c.diasTrabajo) return null;
+  return c.diasTurnoDia !== null && i >= c.diasTurnoDia ? 'noche' : 'dia';
+}
+
+// Promedio legal (art. 9 D.S. 008-2002-TR): horas del ciclo entre todos sus
+// dias, incluidos los de descanso. Maximo 8 h diarias / 48 h semanales.
+function resumenLegal(c) {
+  let horas = 0;
+  for (let i = 0; i < c.diasTrabajo; i++) {
+    const noche = turnoDelIndice(c, i) === 'noche';
+    horas += horasNetas(noche ? c.nocheHoraEntrada : c.horaEntrada, noche ? c.nocheHoraSalida : c.horaSalida, c.refrigerioMin);
+  }
+  const dias = c.diasTrabajo + c.diasDescanso;
+  const diario = horas / dias;
+  return { horas, dias, diario, semanal: diario * 7, excede: diario > 8 + 1e-9 || diario * 7 > 48 + 1e-9 };
+}
+
+const fmt = (n) => n.toLocaleString('es-PE', { maximumFractionDigits: 2 });
+
+function sumarDiasTxt(fechaTxt, n) {
+  const d = new Date(`${fechaTxt}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+function renderCicloInfo() {
+  $('ciclo-noche').hidden = !$('ciclo-alterna').checked;
+  const c = leerCiclo();
+  const legal = $('ciclo-legal');
+  const cal = $('ciclo-calendario');
+  if (!c.diasTrabajo || c.diasDescanso < 0 || !c.horaEntrada || !c.horaSalida || !c.fechaInicio) {
+    legal.innerHTML = '';
+    cal.innerHTML = '';
+    return;
+  }
+  const r = resumenLegal(c);
+  legal.innerHTML = `
+    <div class="${r.excede ? 'error' : 'ciclo-legal-ok'}">
+      <strong>${c.diasTrabajo}x${c.diasDescanso}:</strong> ${fmt(r.horas)} h netas de trabajo en un ciclo de ${r.dias} días ·
+      promedio <b>${fmt(r.diario)} h diarias</b> y <b>${fmt(r.semanal)} h semanales</b>.
+      ${
+        r.excede
+          ? '<br>Supera el promedio máximo legal (8 h diarias / 48 h semanales, art. 9 D.S. 008-2002-TR). Revísalo con tu contador: el exceso se considera sobretiempo.'
+          : ' Dentro del promedio legal (máx. 8 h diarias / 48 h semanales).'
+      }
+    </div>`;
+
+  // Calendario: los 2 primeros ciclos desde el dia de subida.
+  const L = c.diasTrabajo + c.diasDescanso;
+  const total = Math.min(2 * L, 84);
+  const celdas = [];
+  let mesAnterior = '';
+  for (let i = 0; i < total; i++) {
+    const fecha = sumarDiasTxt(c.fechaInicio, i);
+    const turno = turnoDelIndice(c, i % L);
+    const mes = fecha.slice(0, 7);
+    const etiquetaMes = mes !== mesAnterior ? `<span class="cal-mes">${['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][Number(fecha.slice(5, 7)) - 1]}</span>` : '';
+    mesAnterior = mes;
+    const clase = turno === 'noche' ? 'cal-noche' : turno === 'dia' ? 'cal-dia' : 'cal-descanso';
+    const titulo = turno === 'noche' ? 'Trabajo (noche)' : turno === 'dia' ? 'Trabajo (día)' : 'Descanso';
+    celdas.push(`<div class="cal-celda ${clase}" title="${formatoFechaCorta(fecha)} · ${titulo}">${etiquetaMes}${Number(fecha.slice(8, 10))}</div>`);
+  }
+  cal.innerHTML = `
+    <div class="cal-leyenda"><span class="cal-celda cal-dia"></span> Trabajo día <span class="cal-celda cal-noche"></span> Trabajo noche <span class="cal-celda cal-descanso"></span> Descanso</div>
+    <div class="cal-grilla">${celdas.join('')}</div>`;
+}
+
+['ciclo-trabajo', 'ciclo-descanso', 'ciclo-inicio', 'ciclo-entrada', 'ciclo-salida', 'ciclo-refrigerio', 'ciclo-alterna', 'ciclo-dias-dia', 'ciclo-noche-entrada', 'ciclo-noche-salida'].forEach((id) => {
+  $(id).addEventListener('input', renderCicloInfo);
+  $(id).addEventListener('change', renderCicloInfo);
+});
+
+function cicloPorDefecto() {
+  return {
+    fechaInicio: vigenteDesdeInput.value || hoyLima(),
+    diasTrabajo: 14,
+    diasDescanso: 7,
+    horaEntrada: '07:00',
+    horaSalida: '19:00',
+    refrigerioMin: 60,
+    diasTurnoDia: null,
+    nocheHoraEntrada: '19:00',
+    nocheHoraSalida: '07:00'
+  };
+}
+
+function aplicarTipo(tipo) {
+  document.querySelector(`input[name="tipo-horario"][value="${tipo}"]`).checked = true;
+  mostrarBloque(tipo);
+}
+
+// Jornadas predefinidas de obrero.
+document.getElementById('presets-obrero').addEventListener('click', (e) => {
+  const preset = e.target.dataset?.preset;
+  if (!preset) return;
+  if (preset === '6x1' || preset === '5x2') {
+    const descanso = preset === '6x1' ? [6] : [5, 6];
+    renderSemanal(
+      [0, 1, 2, 3, 4, 5, 6].map((d) => ({
+        dia_semana: d,
+        libre: descanso.includes(d),
+        hora_entrada: descanso.includes(d) ? null : '08:00',
+        hora_salida: descanso.includes(d) ? null : '17:00'
+      }))
+    );
+    aplicarTipo('semanal');
+    return;
+  }
+  const actual = leerCiclo();
+  const [trabajo, descanso] = preset === 'otra' ? [actual.diasTrabajo || 10, actual.diasDescanso || 5] : preset.split('x').map(Number);
+  llenarCiclo({
+    ...cicloPorDefecto(),
+    ...(actual.horaEntrada ? { horaEntrada: actual.horaEntrada, horaSalida: actual.horaSalida, refrigerioMin: actual.refrigerioMin } : {}),
+    fechaInicio: actual.fechaInicio || vigenteDesdeInput.value || hoyLima(),
+    diasTrabajo: trabajo,
+    diasDescanso: descanso
+  });
+  aplicarTipo('ciclo');
+  if (preset === 'otra') $('ciclo-trabajo').focus();
+});
 
 // ---------- Lista de horarios ----------
 
@@ -67,6 +240,21 @@ function resumenRotacion(rotacion) {
   return `Ciclo de ${rotacion.pasos.length} día(s) desde ${formatoFechaCorta(rotacion.fechaAncla)}: ${nombres}`;
 }
 
+function resumenCiclo(v) {
+  const c = v.ciclo;
+  if (!c) return '—';
+  let texto = `${c.diasTrabajo}x${c.diasDescanso} desde el ${formatoFechaCorta(c.fechaInicio)} · ${c.horaEntrada}–${c.horaSalida}`;
+  if (c.diasTurnoDia !== null) texto += ` (${c.diasTurnoDia} días de día, luego noche ${c.nocheHoraEntrada}–${c.nocheHoraSalida})`;
+  if (c.refrigerioMin) texto += ` · refrigerio ${c.refrigerioMin} min`;
+  let html = escapeHtml(texto);
+  if (v.legal) {
+    html += v.legal.excedeSemanal || v.legal.excedeDiario
+      ? ` <span class="badge badge-tarde" title="Promedio ${fmt(v.legal.promedioSemanal)} h semanales">Supera promedio legal</span>`
+      : ` <span class="badge badge-a_tiempo" title="Promedio ${fmt(v.legal.promedioSemanal)} h semanales">Promedio legal OK</span>`;
+  }
+  return html;
+}
+
 const ESTADOS = {
   vigente: '<span class="badge badge-aprobado">Vigente</span>',
   programado: '<span class="badge badge-pendiente">Programado</span>',
@@ -84,8 +272,8 @@ function renderVersiones() {
       (v) => `
       <tr data-id="${v.id}">
         <td><strong>${formatoFechaCorta(v.vigenteDesde)}</strong></td>
-        <td>${v.tipo === 'semanal' ? 'Semanal' : 'Rotativo'}</td>
-        <td>${escapeHtml(v.tipo === 'semanal' ? resumenSemanal(v.semanal) : resumenRotacion(v.rotacion))}</td>
+        <td>${v.tipo === 'semanal' ? 'Semanal' : v.tipo === 'ciclo' ? 'Jornada atípica' : 'Rotativo'}</td>
+        <td>${v.tipo === 'ciclo' ? resumenCiclo(v) : escapeHtml(v.tipo === 'semanal' ? resumenSemanal(v.semanal) : resumenRotacion(v.rotacion))}</td>
         <td>${ESTADOS[v.estado] || ''}</td>
         <td style="white-space:nowrap;">
           <button type="button" class="boton-mini secundario editar-version-btn">Editar</button>
@@ -127,6 +315,8 @@ tablaVersiones.addEventListener('click', async (e) => {
 function mostrarBloque(tipo) {
   bloqueSemanal.hidden = tipo !== 'semanal';
   bloqueRotativo.hidden = tipo !== 'rotativo';
+  bloqueCiclo.hidden = tipo !== 'ciclo';
+  if (tipo === 'ciclo') renderCicloInfo();
 }
 
 function filaSemanalHtml(dia, datos) {
@@ -214,6 +404,12 @@ function abrirEditor(version) {
     vigenteDesdeInput.value = versiones.length === 0 && fechaIngreso ? fechaIngreso : hoyLima();
   }
 
+  const mostrarObrero = esObreroConfigurable || tipo === 'ciclo';
+  document.getElementById('opcion-ciclo').hidden = !mostrarObrero;
+  document.getElementById('presets-obrero').hidden = !esObreroConfigurable;
+  llenarCiclo(base?.ciclo ? base.ciclo : cicloPorDefecto());
+  if (!version && !base?.ciclo) $('ciclo-inicio').value = vigenteDesdeInput.value;
+
   document.querySelector(`input[name="tipo-horario"][value="${tipo}"]`).checked = true;
   mostrarBloque(tipo);
   renderSemanal(base?.semanal);
@@ -249,6 +445,8 @@ document.getElementById('guardar-horario-btn').addEventListener('click', async (
       horaEntrada: fila.querySelector('.input-entrada').value,
       horaSalida: fila.querySelector('.input-salida').value
     }));
+  } else if (tipo === 'ciclo') {
+    body.ciclo = leerCiclo();
   } else if (tipo === 'rotativo') {
     body.rotacion = {
       fechaAncla: anclaInput.value,
@@ -289,10 +487,13 @@ document.getElementById('guardar-horario-btn').addEventListener('click', async (
 });
 
 async function cargarTodo() {
-  const [turnosResp, versionesResp] = await Promise.all([
+  const [turnosResp, versionesResp, configResp] = await Promise.all([
     fetch('/api/admin/turnos'),
-    fetch(`/api/admin/workers/${workerId}/horarios`)
+    fetch(`/api/admin/workers/${workerId}/horarios`),
+    fetch('/api/admin/empresa/configuracion')
   ]);
+  const config = configResp.ok ? await configResp.json() : {};
+  esObreroConfigurable = Boolean(config.gestionaObreros) && tipoTrabajador === 'obrero';
   plantillas = turnosResp.ok ? await turnosResp.json() : [];
   document.getElementById('exc-plantilla').innerHTML =
     '<option value="">(horario ad-hoc)</option>' + opcionesPlantillas();

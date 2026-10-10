@@ -1,6 +1,6 @@
 const db = require('../config/db');
-const { hoyLima } = require('../utils/limaDate');
-const { calcularHorasExtra } = require('../utils/overtime');
+const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
+const { calcularHorasExtra, cruzaMedianoche, sumarDias } = require('../utils/overtime');
 const { resolverHorarioDelDia } = require('./horario.service');
 
 const COLUMNAS_ASISTENCIA = [
@@ -8,6 +8,7 @@ const COLUMNAS_ASISTENCIA = [
   'attendance.worker_id',
   'workers.dni',
   'workers.nombre',
+  'workers.tipo_trabajador',
   'attendance.creado_en',
   'attendance.hora_salida',
   'attendance.fecha',
@@ -56,11 +57,41 @@ async function buscarAsistenciaDeHoy(workerId) {
   return db('attendance').where({ worker_id: workerId, fecha }).first();
 }
 
+// Margen despues de la salida programada de un turno noche en el que todavia
+// se acepta marcar su salida.
+const MARGEN_SALIDA_NOCHE_MS = 8 * 60 * 60 * 1000;
+// Sin horario: hasta cuantas horas despues de la entrada de ayer se considera
+// que la jornada sigue abierta.
+const JORNADA_SIN_HORARIO_MS = 14 * 60 * 60 * 1000;
+
+// Jornada sobre la que se marca salida o refrigerio: la de hoy, o la de ayer
+// si sigue abierta porque es un turno que cruza medianoche (turno noche).
+// Un turno de dia sin salida marcada ayer no se arrastra a hoy.
+async function buscarJornadaAbierta(workerId) {
+  const deHoy = await buscarAsistenciaDeHoy(workerId);
+  if (deHoy) return deHoy;
+
+  const hoy = hoyLima();
+  const ayer = sumarDias(hoy, -1);
+  const registro = await db('attendance').where({ worker_id: workerId, fecha: ayer }).whereNull('hora_salida').first();
+  if (!registro) return null;
+
+  const horario = await resolverHorarioDelDia(workerId, ayer);
+  const ahora = Date.now();
+  if (horario && !horario.libre) {
+    if (!cruzaMedianoche(horario)) return null;
+    const salida = limaLocalInputToDate(`${hoy}T${String(horario.horaSalida).slice(0, 5)}`).getTime();
+    return ahora <= salida + MARGEN_SALIDA_NOCHE_MS ? registro : null;
+  }
+  return ahora - new Date(registro.creado_en).getTime() <= JORNADA_SIN_HORARIO_MS ? registro : null;
+}
+
 async function marcarEntrada({ workerId, dailyCodeId, empresaId, sucursalId, geo }) {
   const fecha = hoyLima();
 
-  // Ya marco entrada hoy: no duplicar, devolver el registro existente.
-  const existente = await buscarAsistenciaDeHoy(workerId);
+  // Ya marco entrada hoy (o tiene un turno noche abierto desde ayer): no
+  // duplicar, devolver el registro existente.
+  const existente = await buscarJornadaAbierta(workerId);
   if (existente) return { registro: existente, yaExistia: true };
 
   const [creado] = await db('attendance')
@@ -80,7 +111,7 @@ async function marcarEntrada({ workerId, dailyCodeId, empresaId, sucursalId, geo
 }
 
 async function marcarSalida({ workerId, geo }) {
-  const existente = await buscarAsistenciaDeHoy(workerId);
+  const existente = await buscarJornadaAbierta(workerId);
   if (!existente) {
     return { error: 'sin_entrada' };
   }
@@ -94,7 +125,9 @@ async function marcarSalida({ workerId, geo }) {
   const { extra25, extra35 } = worker.horas_extra_activas
     ? calcularHorasExtra({
         horaSalida,
-        horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
+        horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null,
+        fecha: existente.fecha,
+        cruzaMedianoche: cruzaMedianoche(horario)
       })
     : { extra25: 0, extra35: 0 };
 
@@ -116,7 +149,7 @@ async function marcarSalida({ workerId, geo }) {
 // Refrigerio: salida y regreso, una vez por dia, solo entre la entrada y la
 // salida del dia. Marcar lo mismo dos veces devuelve la hora ya registrada.
 async function marcarRefrigerioSalida({ workerId }) {
-  const existente = await buscarAsistenciaDeHoy(workerId);
+  const existente = await buscarJornadaAbierta(workerId);
   if (!existente) return { error: 'sin_entrada' };
   if (existente.refrigerio_salida_en) return { registro: existente, yaExistia: true };
   if (existente.hora_salida) return { error: 'jornada_cerrada' };
@@ -129,7 +162,7 @@ async function marcarRefrigerioSalida({ workerId }) {
 }
 
 async function marcarRefrigerioRegreso({ workerId }) {
-  const existente = await buscarAsistenciaDeHoy(workerId);
+  const existente = await buscarJornadaAbierta(workerId);
   if (!existente) return { error: 'sin_entrada' };
   if (existente.refrigerio_regreso_en) return { registro: existente, yaExistia: true };
   if (!existente.refrigerio_salida_en) return { error: 'sin_salida_refrigerio' };
@@ -165,7 +198,9 @@ async function editarRegistro(id, { horaEntrada, horaSalida }, adminId, empresaI
     nuevaSalida && worker.horas_extra_activas
       ? calcularHorasExtra({
           horaSalida: nuevaSalida,
-          horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null
+          horaSalidaProgramada: horario && !horario.libre ? horario.horaSalida : null,
+          fecha: registro.fecha,
+          cruzaMedianoche: cruzaMedianoche(horario)
         })
       : { extra25: 0, extra35: 0 };
 
@@ -214,7 +249,7 @@ async function listarAsistenciaDeHoy(empresaId, sucursal) {
 // Reporte del historial: rango de fechas (inclusive) de UNA empresa, con
 // filtro opcional por trabajador, por sucursal asignada al trabajador
 // (sucursalAsignadaId) o por sucursal donde se marco (marcadaEn).
-async function listarAsistencia({ empresaId, desde, hasta, workerId, sucursalAsignadaId, marcadaEn }) {
+async function listarAsistencia({ empresaId, desde, hasta, workerId, sucursalAsignadaId, marcadaEn, tipoTrabajador }) {
   const query = db('attendance')
     .join('workers', 'workers.id', 'attendance.worker_id')
     .leftJoin('sucursales', 'sucursales.id', 'attendance.sucursal_id')
@@ -230,6 +265,9 @@ async function listarAsistencia({ empresaId, desde, hasta, workerId, sucursalAsi
   }
   if (sucursalAsignadaId) {
     query.andWhere('workers.sucursal_id', sucursalAsignadaId);
+  }
+  if (tipoTrabajador) {
+    query.andWhere('workers.tipo_trabajador', tipoTrabajador);
   }
   if (marcadaEn) {
     query.andWhere((qb) => {
@@ -263,6 +301,7 @@ module.exports = {
   buscarOCrearWorker,
   vincularDispositivo,
   buscarAsistenciaDeHoy,
+  buscarJornadaAbierta,
   marcarEntrada,
   marcarSalida,
   marcarRefrigerioSalida,

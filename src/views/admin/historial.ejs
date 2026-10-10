@@ -44,15 +44,27 @@
               <option value="">Todas</option>
             </select>
           </label>
+          <label id="tipo-filtro" hidden style="margin:0; min-width:140px;">Tipo
+            <select id="tipo-input" style="width:100%; margin:0;">
+              <option value="">Todos</option>
+              <option value="empleado">Empleados</option>
+              <option value="obrero">Obreros</option>
+            </select>
+          </label>
           <button id="buscar-btn">Buscar</button>
           <a id="export-link" class="boton secundario" href="#">Exportar Excel</a>
+        </div>
+        <div class="fila-acciones" id="semana-atajos" hidden style="margin-top:-6px;">
+          <span class="card-sub" style="margin:0;">Planilla semanal (lunes a domingo):</span>
+          <button type="button" class="boton-mini secundario" id="esta-semana-btn">Esta semana</button>
+          <button type="button" class="boton-mini secundario" id="semana-pasada-btn">Semana pasada</button>
         </div>
         <div style="overflow-x:auto;">
           <table>
             <thead>
               <tr>
                 <th>Fecha</th><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th>
-                <th>Pendientes</th><th>Extra 25%</th><th>Extra 35%</th><th>Horas extra</th><th class="col-refrigerio" hidden>Sale a refrigerio</th><th class="col-refrigerio" hidden>Regresa</th><th>Ubicación</th><th>Marcó en</th><th></th>
+                <th>Pendientes</th><th id="th-extra-1">Extra 25%</th><th id="th-extra-2">Extra 35%</th><th>Horas extra</th><th class="col-refrigerio" hidden>Sale a refrigerio</th><th class="col-refrigerio" hidden>Regresa</th><th>Ubicación</th><th>Marcó en</th><th></th>
               </tr>
             </thead>
             <tbody id="tabla-historial">
