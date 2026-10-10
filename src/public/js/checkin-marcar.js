@@ -12,14 +12,11 @@ window.addEventListener('pageshow', (e) => {
   const token = contenedor.dataset.token;
   const radio = Number(contenedor.dataset.radio) || 50;
   const errorBox = document.getElementById('geo-error');
-  const avisoNavegador = document.getElementById('aviso-navegador');
   const forms = document.querySelectorAll('form.form-marcar');
 
   const ua = navigator.userAgent || '';
   const esIphone = /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
   const esAndroid = /Android/i.test(ua);
-  // Navegadores dentro de otras apps: suelen bloquear o no pedir la ubicacion.
-  const esNavegadorInterno = /FBAN|FBAV|FB_IAB|Instagram|WhatsApp|Line\/|TikTok|musical_ly|Snapchat|; wv\)/i.test(ua);
 
   // Lectura "suficientemente buena" para enviar de inmediato.
   const PRECISION_OBJETIVO_M = 25;
@@ -27,8 +24,6 @@ window.addEventListener('pageshow', (e) => {
   const PRECISION_ACEPTABLE_M = Math.max(100, radio + 50);
   const ESPERA_INTERMEDIA_MS = 8000;
   const ESPERA_MAXIMA_MS = 20000;
-
-  const enlaceCheckin = `${location.origin}/checkin/${token}`;
 
   // ---------- Mensajes ----------
 
@@ -86,34 +81,6 @@ window.addEventListener('pageshow', (e) => {
     } catch (e) {
       /* solo diagnostico */
     }
-  }
-
-  // ---------- Aviso de navegador dentro de otra app ----------
-
-  if (esNavegadorInterno) {
-    const botones = [];
-    if (esAndroid) {
-      const sinEsquema = enlaceCheckin.replace(/^https?:\/\//, '');
-      botones.push(
-        `<a class="boton boton-mini" href="intent://${sinEsquema}#Intent;scheme=https;package=com.android.chrome;end">Abrir en Chrome</a>`
-      );
-    }
-    botones.push('<button type="button" class="boton-mini" id="copiar-enlace">Copiar enlace</button>');
-    avisoNavegador.innerHTML = `
-      <strong>Estás dentro de otra app (WhatsApp, Instagram, Facebook…).</strong>
-      Estas apps suelen bloquear la ubicación. Abre este enlace en <b>${esIphone ? 'Safari' : 'Chrome'}</b>
-      ${esIphone ? '(toca <b>···</b> o el ícono de compartir › <b>Abrir en Safari</b>)' : ''} para marcar sin problemas.
-      <div>${botones.join('')}</div>`;
-    avisoNavegador.hidden = false;
-    const copiar = document.getElementById('copiar-enlace');
-    copiar.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(enlaceCheckin);
-        copiar.textContent = 'Enlace copiado ✓';
-      } catch (e) {
-        window.prompt('Copia este enlace y ábrelo en tu navegador:', enlaceCheckin);
-      }
-    });
   }
 
   // Si ya sabemos que el permiso esta bloqueado, avisar antes de que toque.

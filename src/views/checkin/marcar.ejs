@@ -14,7 +14,7 @@
 
   <div class="contenedor">
     <div class="tarjeta" style="margin-top: 24px;" data-geo-activa="<%= geolocalizacionActiva ? '1' : '0' %>" data-token="<%= token %>" data-radio="<%= radioMetros %>">
-      <div class="geo-aviso" id="aviso-navegador" hidden></div>
+      <div class="geo-aviso abrir-navegador" id="abrir-navegador" data-destino="/checkin/<%= token %>?e=<%= escaneo %>&k=<%= paseNavegador %>" hidden></div>
       <h1>Hola, <%= nombre %></h1>
       <% if (typeof sucursalNombre !== 'undefined' && sucursalNombre) { %>
         <p class="subtitulo" style="margin-top:-2px;">Marcando en: <strong><%= sucursalNombre %></strong></p>
@@ -34,12 +34,12 @@
       <% } %>
 
       <% if (geolocalizacionActiva) { %>
-        <p class="subtitulo" style="background:var(--blue-light); color:var(--blue-dark); padding:10px 12px; border-radius:var(--radius-sm); font-size:.82rem;">
+        <p class="subtitulo" data-ocultar-en-interno style="background:var(--blue-light); color:var(--blue-dark); padding:10px 12px; border-radius:var(--radius-sm); font-size:.82rem;">
           📍 Para marcar tu asistencia verificaremos tu ubicación. Este dato se usa únicamente para control de asistencia.
         </p>
       <% } %>
 
-      <div class="fila-acciones" style="flex-direction:column;">
+      <div class="fila-acciones" style="flex-direction:column;" data-ocultar-en-interno>
         <form method="POST" action="/checkin/<%= token %>/marcar" class="form-marcar" style="width:100%;">
           <input type="hidden" name="accion" value="entrada" />
             <input type="hidden" name="escaneo" value="<%= escaneo %>" />
@@ -80,6 +80,7 @@
 
   <%- include('../partials/footer') %>
 
+  <script src="/js/checkin-navegador.js"></script>
   <script src="/js/checkin-marcar.js"></script>
 </body>
 </html>

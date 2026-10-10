@@ -60,4 +60,18 @@ async function liberar(id) {
   await db('escaneos_qr').where({ id }).update({ usado_en: null });
 }
 
-module.exports = { VIGENCIA_MS, crear, validar, consumir, liberar };
+// Marca como usado el pase para llevar la llave a otro navegador. Atomico:
+// solo funciona una vez, si el escaneo es de ese trabajador, sigue vigente y
+// no se uso para marcar.
+async function transferir(codigo, dailyCodeId, workerId) {
+  const [escaneo] = await db('escaneos_qr')
+    .where({ codigo, daily_code_id: dailyCodeId, worker_id: workerId })
+    .whereNull('usado_en')
+    .whereNull('transferido_en')
+    .andWhere('creado_en', '>', new Date(Date.now() - VIGENCIA_MS))
+    .update({ transferido_en: db.fn.now() })
+    .returning('*');
+  return escaneo || null;
+}
+
+module.exports = { VIGENCIA_MS, crear, validar, consumir, liberar, transferir };

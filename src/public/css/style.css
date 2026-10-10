@@ -454,6 +454,16 @@ button:disabled:hover { background: var(--blue); }
 
 .exito { color: var(--green); }
 
+/* El atributo hidden siempre gana sobre display de las clases */
+[hidden] { display: none !important; }
+
+/* Abrir la pagina del QR en el navegador normal (no en el interno de otra app) */
+.abrir-navegador p { margin: 6px 0 10px; }
+.abrir-navegador-botones { display: flex; flex-direction: column; gap: 8px; }
+.abrir-navegador-botones .boton, .abrir-navegador-botones button { width: 100%; }
+.abrir-navegador-ayuda { font-size: .8rem; }
+.abrir-navegador-continuar { display: block; margin-top: 10px; font-size: .78rem; color: var(--muted); text-align: center; }
+
 /* Mapa de la sucursal (Configuracion) */
 .suc-mapa-wrap { margin: 4px 0 12px; }
 .suc-buscador { margin-bottom: 8px; }

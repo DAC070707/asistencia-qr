@@ -22,6 +22,34 @@ function setDeviceCookie(res, workerId, empresaId) {
   res.cookie('worker_token', token, DEVICE_COOKIE_OPTS);
 }
 
+// Pase de un solo uso (5 min) para llevar la llave del trabajador desde el
+// navegador interno de otra app (Google, lector de QR) a su navegador normal.
+// Va amarrado al escaneo actual, asi abrir el otro navegador no equivale a
+// volver a escanear.
+function crearPaseNavegador(workerId, empresaId, escaneo) {
+  return jwt.sign({ tipo: 'transferencia', workerId, empresaId, escaneo }, env.jwtSecret, { expiresIn: '5m' });
+}
+
+// Devuelve el trabajador del pase si es valido para este QR y escaneo (y lo
+// marca como usado), o null.
+async function usarPaseNavegador(pase, escaneo, codigo) {
+  let payload;
+  try {
+    payload = jwt.verify(String(pase), env.jwtSecret);
+  } catch (err) {
+    return null;
+  }
+  if (payload.tipo !== 'transferencia' || payload.escaneo !== escaneo || payload.empresaId !== codigo.empresa_id) {
+    return null;
+  }
+  const worker = await db('workers')
+    .where({ id: payload.workerId, empresa_id: codigo.empresa_id, activo: true })
+    .first();
+  if (!worker) return null;
+  const transferido = await escaneoService.transferir(escaneo, codigo.id, worker.id);
+  return transferido ? worker : null;
+}
+
 // Si se pasa empresaId, solo reconoce al trabajador cuando la cookie es de
 // ESA empresa (la del QR que se acaba de escanear). Esto es lo que permite
 // que un mismo celular marque asistencia en dos negocios distintos sin
@@ -35,6 +63,7 @@ async function workerDesdeCookie(req, empresaId) {
 
   try {
     const payload = jwt.verify(token, env.jwtSecret);
+    if (payload.tipo) return null; // un pase de transferencia no es una llave
     if (empresaId !== undefined && payload.empresaId !== empresaId) return null;
 
     const worker = await db('workers')
@@ -70,6 +99,7 @@ async function datosParaVistaMarcar(worker, codigo, registro, error, escaneo) {
       : null,
     sucursalNombre: Number(count) > 1 ? geo.nombre : null,
     escaneo,
+    paseNavegador: escaneo ? crearPaseNavegador(worker.id, codigo.empresa_id, escaneo) : null,
     error: error || null
   };
 }
@@ -145,6 +175,17 @@ async function mostrarCheckin(req, res) {
   const codigo = await dailyCodeService.validarToken(token);
   if (!codigo) {
     return res.render('checkin/codigo-invalido');
+  }
+
+  // Llega desde el boton "Abrir en Chrome/Safari" con un pase: instala la
+  // llave del trabajador en este navegador y recarga sin el pase en la URL.
+  if (req.query.k && req.query.e) {
+    const delPase = await usarPaseNavegador(req.query.k, String(req.query.e), codigo);
+    if (delPase) {
+      setDeviceCookie(res, delPase.id, codigo.empresa_id);
+      sinCache(res);
+      return res.redirect(302, `/checkin/${token}?e=${encodeURIComponent(String(req.query.e))}`);
+    }
   }
 
   const worker = await workerDesdeCookie(req, codigo.empresa_id);
