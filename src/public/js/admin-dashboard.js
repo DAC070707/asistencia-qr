@@ -101,7 +101,7 @@ async function cargarAsistenciaHoy() {
   tbody.innerHTML = registros
     .map(
       (r) =>
-        `<tr><td><div class="name-cell"><div class="name-avatar">${iniciales(r.nombre)}</div>${escapeHtml(r.nombre)}</div></td><td>${escapeHtml(r.dni)}</td><td>${formatearHora(r.creado_en)}</td><td>${r.hora_salida ? formatearHora(r.hora_salida) : '—'}</td></tr>`
+        `<tr><td><div class="name-cell"><div class="name-avatar">${iniciales(r.nombre)}</div>${escapeHtml(r.nombre)}</div></td><td data-label="DNI">${escapeHtml(r.dni)}</td><td data-label="Entrada">${formatearHora(r.creado_en)}</td><td data-label="Salida">${r.hora_salida ? formatearHora(r.hora_salida) : '—'}</td></tr>`
     )
     .join('');
 }

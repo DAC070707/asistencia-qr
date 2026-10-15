@@ -71,6 +71,8 @@ function badgeMarcacion(estado, minutos) {
 const desdeInput = document.getElementById('desde-input');
 const hastaInput = document.getElementById('hasta-input');
 let conRefrigerio = false;
+let etiquetaExtra1 = 'Extra 25%';
+let etiquetaExtra2 = 'Extra 35%';
 const workerInput = document.getElementById('worker-input');
 const sucursalInput = document.getElementById('sucursal-input');
 const tbody = document.getElementById('tabla-historial');
@@ -111,8 +113,10 @@ async function cargarConfigRefrigerio() {
   const pe = config.porcentajesExtra?.empleado || { tramo1: 25, tramo2: 35 };
   const po = config.porcentajesExtra?.obrero || pe;
   const mismos = !config.gestionaObreros || (pe.tramo1 === po.tramo1 && pe.tramo2 === po.tramo2);
-  document.getElementById('th-extra-1').textContent = mismos ? `Extra ${pe.tramo1}%` : 'Extra 1er tramo';
-  document.getElementById('th-extra-2').textContent = mismos ? `Extra ${pe.tramo2}%` : 'Extra 2do tramo';
+  etiquetaExtra1 = mismos ? `Extra ${pe.tramo1}%` : 'Extra 1er tramo';
+  etiquetaExtra2 = mismos ? `Extra ${pe.tramo2}%` : 'Extra 2do tramo';
+  document.getElementById('th-extra-1').textContent = etiquetaExtra1;
+  document.getElementById('th-extra-2').textContent = etiquetaExtra2;
   if (!mismos) {
     document.getElementById('th-extra-1').title = `Empleados ${pe.tramo1}% · Obreros ${po.tramo1}%`;
     document.getElementById('th-extra-2').title = `Empleados ${pe.tramo2}% · Obreros ${po.tramo2}%`;
@@ -147,7 +151,7 @@ document.getElementById('semana-pasada-btn').addEventListener('click', () => pon
 function celdasRefrigerioHtml(r) {
   if (!conRefrigerio) return '';
   const fmt = (v) => (v ? formatearHora(v) : '—');
-  return `<td>${fmt(r.refrigerio_salida_en)}</td><td>${fmt(r.refrigerio_regreso_en)}</td>`;
+  return `<td class="c-refrigerio sep-movil" data-label="Sale a refrigerio">${fmt(r.refrigerio_salida_en)}</td><td class="c-refrigerio sep-movil" data-label="Regresa">${fmt(r.refrigerio_regreso_en)}</td>`;
 }
 
 function paramsActuales() {
@@ -163,23 +167,31 @@ function actualizarExportLink() {
   exportLink.href = `/api/admin/attendance/export.xlsx?${paramsActuales().toString()}`;
 }
 
+// Celular: debajo de la fecha, "📍 Sucursal • distancia" (como en la referencia).
+function lugarMovil(r) {
+  const partes = [];
+  if (r.sucursal_nombre) partes.push(escapeHtml(r.sucursal_nombre));
+  if (r.entrada_distancia_m !== null && r.entrada_distancia_m !== undefined) partes.push(`${Number(r.entrada_distancia_m).toFixed(0)} m`);
+  return partes.length ? `<span class="sub-fila solo-movil">📍 ${partes.join(' • ')}</span>` : '';
+}
+
 function filaHtml(r) {
   const tieneExtra = Number(r.horas_extra_25) > 0 || Number(r.horas_extra_35) > 0;
   return `
-    <tr data-id="${r.id}" data-entrada="${r.creado_en}" data-salida="${r.hora_salida || ''}">
-      <td>${formatearFecha(r.fecha)}</td>
-      <td><div class="name-cell"><div class="name-avatar">${iniciales(r.nombre)}</div>${escapeHtml(r.nombre)}</div></td>
-      <td>${escapeHtml(r.dni)}</td>
-      <td class="celda-entrada">${formatearHora(r.creado_en)}${badgeMarcacion(r.entrada_estado, r.entrada_minutos)}</td>
-      <td class="celda-salida">${r.hora_salida ? formatearHora(r.hora_salida) : '—'}${badgeMarcacion(r.salida_estado, r.salida_minutos)}</td>
-      <td>${r.horas_pendientes === null || r.horas_pendientes === undefined ? '—' : `${Number(r.horas_pendientes).toFixed(2)}h`}</td>
-      <td>${Number(r.horas_extra_25).toFixed(2)}</td>
-      <td>${Number(r.horas_extra_35).toFixed(2)}</td>
-      <td class="celda-estado">${tieneExtra ? badgeEstado(r.horas_extra_estado) : '—'}</td>
+    <tr data-id="${r.id}" data-entrada="${r.creado_en}" data-salida="${r.hora_salida || ''}" data-fecha="${formatearFecha(r.fecha)}" data-nombre="${escapeHtml(r.nombre)}" data-dni="${escapeHtml(r.dni)}">
+      <td class="c-fecha">${formatearFecha(r.fecha)}${lugarMovil(r)}</td>
+      <td class="c-nombre"><div class="name-cell"><div class="name-avatar">${iniciales(r.nombre)}</div><div><span class="nombre-fila">${escapeHtml(r.nombre)}</span><span class="sub-fila solo-movil">DNI: ${escapeHtml(r.dni)}</span></div></div></td>
+      <td class="c-dni">${escapeHtml(r.dni)}</td>
+      <td class="celda-entrada c-entrada sep-movil" data-label="Entrada">${formatearHora(r.creado_en)}${badgeMarcacion(r.entrada_estado, r.entrada_minutos)}</td>
+      <td class="celda-salida c-salida sep-movil" data-label="Salida">${r.hora_salida ? formatearHora(r.hora_salida) : '—'}${badgeMarcacion(r.salida_estado, r.salida_minutos)}</td>
+      <td class="c-pendientes sep-movil" data-label="Pendientes">${r.horas_pendientes === null || r.horas_pendientes === undefined ? '—' : `${Number(r.horas_pendientes).toFixed(2)}h`}</td>
+      <td class="c-extra1 sep-movil" data-label="${etiquetaExtra1}">${Number(r.horas_extra_25).toFixed(2)}</td>
+      <td class="c-extra2 sep-movil" data-label="${etiquetaExtra2}">${Number(r.horas_extra_35).toFixed(2)}</td>
+      <td class="celda-estado c-estado sep-movil" data-label="Horas extra">${tieneExtra ? badgeEstado(r.horas_extra_estado) : '—'}</td>
       ${celdasRefrigerioHtml(r)}
-      <td>${r.entrada_distancia_m === null || r.entrada_distancia_m === undefined ? '—' : `${Number(r.entrada_distancia_m).toFixed(0)} m`}</td>
-      <td>${r.sucursal_nombre ? escapeHtml(r.sucursal_nombre) : '—'}</td>
-      <td class="celda-acciones">
+      <td class="c-distancia">${r.entrada_distancia_m === null || r.entrada_distancia_m === undefined ? '—' : `${Number(r.entrada_distancia_m).toFixed(0)} m`}</td>
+      <td class="c-sucursal">${r.sucursal_nombre ? escapeHtml(r.sucursal_nombre) : '—'}</td>
+      <td class="celda-acciones c-acciones">
         <button type="button" class="boton-mini secundario editar-btn">Editar</button>
         ${
           tieneExtra && r.horas_extra_estado !== 'aprobado'
@@ -198,22 +210,22 @@ function filaHtml(r) {
 function filaEdicionHtml(fila) {
   const entrada = fila.dataset.entrada ? toLimaInputValue(fila.dataset.entrada) : '';
   const salida = fila.dataset.salida ? toLimaInputValue(fila.dataset.salida) : '';
-  const nombre = fila.children[1].textContent;
-  const dni = fila.children[2].textContent;
-  const fecha = fila.children[0].textContent;
+  const nombre = fila.dataset.nombre;
+  const dni = fila.dataset.dni;
+  const fecha = fila.dataset.fecha;
 
   fila.innerHTML = `
-    <td>${escapeHtml(fecha)}</td>
-    <td>${escapeHtml(nombre)}</td>
-    <td>${escapeHtml(dni)}</td>
-    <td><input type="datetime-local" class="input-entrada" value="${entrada}" /></td>
-    <td><input type="datetime-local" class="input-salida" value="${salida}" /></td>
-    <td colspan="3"></td>
-    <td></td>
-    ${conRefrigerio ? '<td></td><td></td>' : ''}
-    <td></td>
-    <td></td>
-    <td class="celda-acciones">
+    <td class="c-fecha">${escapeHtml(fecha)}</td>
+    <td class="c-nombre"><span class="nombre-fila">${escapeHtml(nombre)}</span><span class="sub-fila solo-movil">DNI: ${escapeHtml(dni)}</span></td>
+    <td class="c-dni">${escapeHtml(dni)}</td>
+    <td class="c-edicion sep-movil" data-label="Entrada"><input type="datetime-local" class="input-entrada" value="${entrada}" /></td>
+    <td class="c-edicion" data-label="Salida"><input type="datetime-local" class="input-salida" value="${salida}" /></td>
+    <td class="c-vacio" colspan="3"></td>
+    <td class="c-vacio"></td>
+    ${conRefrigerio ? '<td class="c-vacio"></td><td class="c-vacio"></td>' : ''}
+    <td class="c-vacio"></td>
+    <td class="c-vacio"></td>
+    <td class="celda-acciones c-acciones">
       <button type="button" class="boton-mini guardar-btn">Guardar</button>
       <button type="button" class="boton-mini secundario cancelar-btn">Cancelar</button>
     </td>`;

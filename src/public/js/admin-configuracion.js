@@ -404,14 +404,14 @@ async function cargarIntentos() {
     .map(
       (i) => `
       <tr>
-        <td>${fechaHoraLima(i.creado_en)}</td>
-        <td>${escapeHtml(i.worker_nombre || '—')}${i.worker_dni ? `<br><span class="card-sub" style="margin:0;">${escapeHtml(i.worker_dni)}</span>` : ''}</td>
-        <td>${escapeHtml(i.sucursal_nombre || '—')}</td>
-        <td>${escapeHtml(ACCIONES_INTENTO[i.accion] || i.accion || '—')}</td>
-        <td>${escapeHtml(MOTIVOS_INTENTO[i.motivo] || i.motivo)}</td>
-        <td>${metros(i.distancia_m)}</td>
-        <td>${i.precision_m === null || i.precision_m === undefined ? '—' : `±${Math.round(Number(i.precision_m))} m`}</td>
-        <td>${escapeHtml(DISPOSITIVOS[i.dispositivo] || '—')}</td>
+        <td data-label="Fecha y hora">${fechaHoraLima(i.creado_en)}</td>
+        <td data-label="Trabajador">${escapeHtml(i.worker_nombre || '—')}${i.worker_dni ? `<br><span class="card-sub" style="margin:0;">${escapeHtml(i.worker_dni)}</span>` : ''}</td>
+        <td data-label="Sucursal">${escapeHtml(i.sucursal_nombre || '—')}</td>
+        <td data-label="Acción">${escapeHtml(ACCIONES_INTENTO[i.accion] || i.accion || '—')}</td>
+        <td data-label="Motivo">${escapeHtml(MOTIVOS_INTENTO[i.motivo] || i.motivo)}</td>
+        <td data-label="Distancia">${metros(i.distancia_m)}</td>
+        <td data-label="Precisión">${i.precision_m === null || i.precision_m === undefined ? '—' : `±${Math.round(Number(i.precision_m))} m`}</td>
+        <td data-label="Teléfono">${escapeHtml(DISPOSITIVOS[i.dispositivo] || '—')}</td>
       </tr>`
     )
     .join('');

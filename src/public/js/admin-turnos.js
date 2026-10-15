@@ -30,11 +30,11 @@ async function cargarTurnos() {
       (t) => `
         <tr data-id="${t.id}">
           <td><input type="text" class="input-nombre" value="${escapeHtml(t.nombre)}" style="width:100%;" /></td>
-          <td><input type="time" class="input-entrada" value="${soloHora(t.hora_entrada)}" /></td>
-          <td><input type="time" class="input-salida" value="${soloHora(t.hora_salida)}" /></td>
-          <td><input type="checkbox" class="input-cruza" ${t.cruza_medianoche ? 'checked' : ''} /></td>
-          <td><input type="checkbox" class="input-descanso" ${t.es_descanso ? 'checked' : ''} /></td>
-          <td>
+          <td data-label="Entrada"><input type="time" class="input-entrada" value="${soloHora(t.hora_entrada)}" /></td>
+          <td data-label="Salida"><input type="time" class="input-salida" value="${soloHora(t.hora_salida)}" /></td>
+          <td data-label="Cruza medianoche"><input type="checkbox" class="input-cruza" ${t.cruza_medianoche ? 'checked' : ''} /></td>
+          <td data-label="Descanso"><input type="checkbox" class="input-descanso" ${t.es_descanso ? 'checked' : ''} /></td>
+          <td class="td-botones">
             <button type="button" class="boton-mini guardar-btn">Guardar</button>
             <button type="button" class="boton-mini secundario eliminar-btn">Eliminar</button>
           </td>

@@ -22,11 +22,11 @@ async function cargarEmpresas() {
     .map(
       (e) => `
         <tr>
-          <td>${escapeHtml(e.nombre)}</td>
-          <td>${e.activo ? '✅' : '❌'}</td>
-          <td>${e.trabajadores}</td>
-          <td>${e.marcaciones}</td>
-          <td>${new Date(e.creado_en).toLocaleDateString('es-PE')}</td>
+          <td><strong>${escapeHtml(e.nombre)}</strong></td>
+          <td data-label="Activo">${e.activo ? '✅' : '❌'}</td>
+          <td data-label="Trabajadores">${e.trabajadores}</td>
+          <td data-label="Marcaciones">${e.marcaciones}</td>
+          <td data-label="Creada">${new Date(e.creado_en).toLocaleDateString('es-PE')}</td>
         </tr>`
     )
     .join('');

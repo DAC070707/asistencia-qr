@@ -271,11 +271,11 @@ function renderVersiones() {
     .map(
       (v) => `
       <tr data-id="${v.id}">
-        <td><strong>${formatoFechaCorta(v.vigenteDesde)}</strong></td>
-        <td>${v.tipo === 'semanal' ? 'Semanal' : v.tipo === 'ciclo' ? 'Jornada atípica' : 'Rotativo'}</td>
-        <td>${v.tipo === 'ciclo' ? resumenCiclo(v) : escapeHtml(v.tipo === 'semanal' ? resumenSemanal(v.semanal) : resumenRotacion(v.rotacion))}</td>
-        <td>${ESTADOS[v.estado] || ''}</td>
-        <td style="white-space:nowrap;">
+        <td data-label="Aplica desde"><strong>${formatoFechaCorta(v.vigenteDesde)}</strong></td>
+        <td data-label="Tipo">${v.tipo === 'semanal' ? 'Semanal' : v.tipo === 'ciclo' ? 'Jornada atípica' : 'Rotativo'}</td>
+        <td class="td-detalle">${v.tipo === 'ciclo' ? resumenCiclo(v) : escapeHtml(v.tipo === 'semanal' ? resumenSemanal(v.semanal) : resumenRotacion(v.rotacion))}</td>
+        <td data-label="Estado">${ESTADOS[v.estado] || ''}</td>
+        <td class="td-botones" style="white-space:nowrap;">
           <button type="button" class="boton-mini secundario editar-version-btn">Editar</button>
           <button type="button" class="boton-mini secundario eliminar-version-btn">Eliminar</button>
         </td>
@@ -527,10 +527,10 @@ async function cargarExcepciones() {
     .map(
       (e) => `
         <tr data-id="${e.id}">
-          <td>${new Date(e.fecha).toISOString().slice(0, 10)}</td>
-          <td>${detalleExcepcion(e)}</td>
-          <td>${escapeHtml(e.motivo || '—')}</td>
-          <td><button type="button" class="boton-mini secundario eliminar-excepcion-btn">Eliminar</button></td>
+          <td data-label="Fecha">${new Date(e.fecha).toISOString().slice(0, 10)}</td>
+          <td data-label="Detalle">${detalleExcepcion(e)}</td>
+          <td data-label="Motivo">${escapeHtml(e.motivo || '—')}</td>
+          <td class="td-botones"><button type="button" class="boton-mini secundario eliminar-excepcion-btn">Eliminar</button></td>
         </tr>`
     )
     .join('');

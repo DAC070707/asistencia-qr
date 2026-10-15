@@ -646,7 +646,11 @@ form#crear-form input[type="checkbox"],
   -webkit-appearance: auto;
   width: auto;
   height: auto;
+  background: none;
 }
+form#excepcion-form input[type="checkbox"]::after,
+form#crear-form input[type="checkbox"]::after,
+#bloque-semanal input[type="checkbox"]::after { display: none; }
 
 /* ---------- Auth (login) shell ---------- */
 .auth-shell {
@@ -672,23 +676,339 @@ form#crear-form input[type="checkbox"],
 }
 .auth-logo { display: block; width: 100px; height: auto; margin: 0 auto 22px; filter: brightness(0) saturate(100%); }
 
+/* ---------- Celular: barra superior, menu lateral y tarjetas ---------- */
+.barra-movil, .menu-fondo, .sidebar-cerrar, .solo-movil { display: none; }
+
 @media (max-width: 860px) {
+  .solo-movil { display: initial; }
+  .solo-escritorio { display: none !important; }
+
   .app-shell { display: block; }
-  .sidebar {
-    width: 100%;
-    height: auto;
-    position: static;
-    flex-direction: row;
+
+  /* Barra superior */
+  .barra-movil {
+    position: sticky;
+    top: 0;
+    z-index: 80;
+    display: flex;
     align-items: center;
-    padding: 14px 16px;
-    gap: 14px;
+    gap: 10px;
+    padding: 10px 14px;
+    background: rgba(246, 248, 253, .92);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
   }
-  .sidebar::after { display: none; }
-  .sidebar-brand { padding: 0; }
-  .sidebar-nav { flex-direction: row; flex-wrap: wrap; flex: 1; }
-  .sidebar-link span { display: none; }
-  .sidebar-link { padding: 9px; }
-  .sidebar-spacer, .sidebar-promo { display: none; }
-  .sidebar-logout { border-top: none; margin-top: 0; padding-top: 0; }
-  .main { padding: 22px 16px 44px; }
+  .barra-movil-btn {
+    width: 42px;
+    height: 42px;
+    padding: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink);
+    box-shadow: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .barra-movil-btn svg { width: 24px; height: 24px; }
+  .barra-movil-avatar { background: var(--surface); border: 1px solid var(--border); }
+  .barra-movil-avatar svg { width: 20px; height: 20px; }
+  .barra-movil-logo img { height: 24px; width: auto; display: block; filter: brightness(0) saturate(100%); }
+  .barra-movil-empresa {
+    margin-left: auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 12px 4px 4px;
+    box-shadow: var(--shadow-sm);
+  }
+  .barra-movil-empresa-icono {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--blue);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .barra-movil-empresa-icono svg { width: 16px; height: 16px; }
+  .barra-movil-empresa-nombre {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: .8rem;
+    color: var(--ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 38vw;
+  }
+  .barra-movil-usuario { position: relative; margin-left: auto; }
+  .barra-movil-empresa + .barra-movil-usuario { margin-left: 0; }
+  .menu-usuario {
+    position: absolute;
+    right: 0;
+    top: 50px;
+    min-width: 200px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    padding: 8px;
+    z-index: 90;
+  }
+  .menu-usuario-empresa { margin: 4px 8px 8px; font-weight: 700; font-size: .85rem; color: var(--ink); }
+  .menu-usuario-salir {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: transparent;
+    color: var(--red);
+    box-shadow: none;
+    padding: 10px 8px;
+    font-size: .88rem;
+  }
+  .menu-usuario-salir svg { width: 18px; height: 18px; }
+
+  /* Menu lateral deslizable */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    max-width: 84vw;
+    height: auto;
+    z-index: 100;
+    transform: translateX(-105%);
+    transition: transform .22s ease;
+    overflow-y: auto;
+  }
+  body.menu-abierto .sidebar { transform: none; box-shadow: 12px 0 40px rgba(0, 0, 0, .35); }
+  body.menu-abierto { overflow: hidden; }
+  .menu-fondo:not([hidden]) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 95;
+    background: rgba(10, 17, 32, .45);
+  }
+  .sidebar-cerrar {
+    display: flex;
+    position: absolute;
+    top: 18px;
+    right: 14px;
+    z-index: 2;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, .08);
+    color: #fff;
+    box-shadow: none;
+  }
+  .sidebar-cerrar svg { width: 18px; height: 18px; }
+
+  /* Contenido */
+  .main { padding: 18px 14px 44px; overflow-x: hidden; }
+  .topbar { margin-bottom: 18px; }
+  .topbar h1 { font-size: 1.7rem; }
+  .topbar .empresa-chip, .topbar .clock-widget { display: none; }
+  .back-link { margin-bottom: 10px; }
+  .card, .tarjeta { padding: 18px 16px; border-radius: 18px; }
+
+  /* Formularios apilados */
+  .fila-acciones { gap: 10px; align-items: stretch; }
+  .fila-acciones > label { flex: 1 1 100%; margin: 0; }
+  .fila-acciones > label:has(> input[type="checkbox"]),
+  .fila-acciones > label:has(> input[type="radio"]) { flex: 0 1 auto; }
+  .fila-acciones input:not([type="checkbox"]):not([type="radio"]),
+  .fila-acciones select { max-width: none !important; width: 100%; }
+  .fila-acciones > input:not([type="checkbox"]):not([type="radio"]),
+  .fila-acciones > select { flex: 1 1 100%; }
+  .fila-acciones > button, .fila-acciones > .boton { flex: 1 1 auto; min-height: 46px; }
+
+  /* Tarjetas que solo contienen una lista: sin fondo, las filas son las tarjetas */
+  .card.card-lista { background: transparent; border: none; box-shadow: none; padding: 0; }
+  .card.card-lista > h2, .card.card-lista > .card-head, .card.card-lista > .card-sub { padding: 0 4px; }
+
+  /* ----- Patron generico: tabla -> tarjetas ----- */
+  table.tabla-movil, table.tabla-movil tbody, table.tabla-movil tr, table.tabla-movil td { display: block; width: 100%; }
+  table.tabla-movil thead { display: none; }
+  table.tabla-movil tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: var(--shadow-sm);
+    padding: 10px 14px;
+    margin-bottom: 12px;
+  }
+  table.tabla-movil td {
+    border: none;
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    text-align: right;
+    font-size: .9rem;
+  }
+  table.tabla-movil td[data-label]::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: .7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    text-align: left;
+    flex-shrink: 0;
+  }
+  table.tabla-movil td:not([data-label]) { justify-content: flex-start; text-align: left; }
+  table.tabla-movil td:empty { display: none; }
+  table.tabla-movil td[colspan] { display: block; text-align: center; color: var(--muted); }
+  table.tabla-movil td input:not([type="checkbox"]):not([type="radio"]), table.tabla-movil td select { max-width: 62%; }
+  table.tabla-movil td.td-botones { justify-content: flex-end; gap: 8px; padding-top: 10px; white-space: normal !important; }
+  table.tabla-movil td.td-botones .boton-mini { padding: 9px 16px; font-size: .82rem; }
+  table.tabla-movil td.td-detalle { display: block; text-align: left; font-size: .85rem; color: var(--ink); }
+  table.tabla-movil td:first-child:not([data-label]) { font-weight: 600; }
+
+  /* ----- Tarjetas de Trabajadores e Historial ----- */
+  table.tabla-tarjetas, table.tabla-tarjetas tbody { display: block; width: 100%; }
+  table.tabla-tarjetas thead { display: none; }
+  table.tabla-tarjetas tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: var(--shadow-sm);
+    padding: 12px 14px;
+    margin-bottom: 14px;
+  }
+  table.tabla-tarjetas td { border: none; padding: 7px 4px; box-sizing: border-box; min-width: 0; }
+  table.tabla-tarjetas td[colspan] { width: 100%; text-align: center; color: var(--muted); }
+  table.tabla-tarjetas td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--muted);
+    font-size: .64rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin-bottom: 2px;
+  }
+  table.tabla-tarjetas .name-cell { align-items: center; }
+  table.tabla-tarjetas .name-avatar { width: 46px; height: 46px; font-size: .9rem; }
+  .nombre-fila { font-family: var(--font-display); font-weight: 700; font-size: 1rem; color: var(--ink); line-height: 1.2; }
+  .sub-fila { display: block; color: var(--muted); font-size: .8rem; font-weight: 500; margin-top: 2px; }
+  .sep-movil { border-top: 1px solid var(--border) !important; }
+
+  /* Trabajadores */
+  .tabla-trabajadores .c-nombre { width: 64%; order: -2; }
+  .tabla-trabajadores .c-dispositivo { order: -1; }
+  .tabla-trabajadores .c-dispositivo .badge { white-space: nowrap; }
+  .tabla-trabajadores .c-dni { display: none; }
+  .tabla-trabajadores .c-dispositivo { width: 36%; display: flex; justify-content: flex-end; align-items: center; gap: 4px; }
+  .tabla-trabajadores .c-tipo, .tabla-trabajadores .c-categoria { width: 50%; }
+  .tabla-trabajadores .c-horario { width: 52%; font-size: .88rem; }
+  .tabla-trabajadores .c-sucursal { width: 48%; }
+  .tabla-trabajadores .c-fecha { width: 50%; }
+  .tabla-trabajadores .c-activo, .tabla-trabajadores .c-extra { width: 25%; text-align: center; }
+  .tabla-trabajadores .c-acciones { width: 100%; padding-top: 4px; }
+  .tabla-trabajadores .c-acciones .guardar-btn { width: 100%; min-height: 44px; font-size: .9rem; border-radius: 12px; }
+  .tabla-trabajadores select, .tabla-trabajadores input[type="date"] { width: 100%; margin: 0; }
+
+  /* Historial */
+  .tabla-historial .c-nombre { width: 58%; }
+  .tabla-historial .c-fecha { width: 42%; text-align: right; font-size: .82rem; color: var(--muted); }
+  .tabla-historial .c-dni, .tabla-historial .c-sucursal, .tabla-historial .c-distancia { display: none; }
+  .tabla-historial .c-entrada, .tabla-historial .c-salida, .tabla-historial .c-pendientes,
+  .tabla-historial .c-extra1, .tabla-historial .c-extra2 { width: 20%; font-size: .86rem; font-weight: 600; }
+  .tabla-historial .c-estado, .tabla-historial .c-refrigerio { width: 33.33%; font-size: .84rem; }
+  .tabla-historial .c-acciones { width: 100%; display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .tabla-historial .c-acciones .boton-mini { padding: 9px 16px; font-size: .82rem; }
+  .tabla-historial .badge { font-size: .62rem; padding: 2px 6px; white-space: nowrap; }
+  .tabla-historial .c-edicion { width: 100%; }
+  .tabla-historial .c-edicion input { width: 100%; }
+
+  /* Menu ⋮ de la fila */
+  .menu-fila { position: relative; }
+  .menu-fila-btn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink);
+    box-shadow: none;
+    font-size: 1.3rem;
+    line-height: 1;
+  }
+  .menu-fila-lista {
+    position: absolute;
+    right: 0;
+    top: 38px;
+    z-index: 20;
+    min-width: 210px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow);
+    padding: 6px;
+    text-align: left;
+  }
+  .menu-fila-lista a, .menu-fila-lista button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 10px 10px;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--ink);
+    box-shadow: none;
+    font-size: .88rem;
+    font-weight: 500;
+    text-decoration: none;
+  }
+  .menu-fila-lista button.desvincular-btn { color: var(--red); }
+
+  .tabla-historial .c-nombre { order: -2; }
+  .tabla-historial .c-fecha { order: -1; }
+  .tabla-historial td.c-vacio { display: none; }
+  .panel-filtros {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    box-shadow: var(--shadow-sm);
+    padding: 16px 14px 6px;
+    margin-bottom: 16px;
+  }
+
+  /* Filtros del Historial */
+  .filtros-historial { display: grid !important; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .filtros-historial > label { grid-column: 1 / -1; }
+  .filtros-historial > label.filtro-fecha { grid-column: auto; }
+  .filtros-historial > button, .filtros-historial > .boton { width: 100%; }
+
+  /* Editor semanal del horario: tabla compacta que cabe en el celular */
+  #bloque-semanal table { table-layout: fixed; }
+  #bloque-semanal th, #bloque-semanal td { padding: 8px 3px; font-size: .8rem; }
+  #bloque-semanal th:nth-child(1), #bloque-semanal td:nth-child(1) { width: 26%; }
+  #bloque-semanal th:nth-child(2), #bloque-semanal td:nth-child(2) { width: 14%; text-align: center; }
+  #bloque-semanal input[type="time"] { width: 100%; min-width: 0; padding: 8px 4px; font-size: .8rem; }
+
+  /* QR de "Hoy" */
+  .qr-hero { max-width: 100%; }
+  .qr-image-lg { width: min(260px, 70vw); height: auto; aspect-ratio: 1; }
 }

@@ -26,12 +26,13 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="fila-acciones">
-          <label style="margin:0;">Desde
+      <div class="card card-lista">
+        <div class="panel-filtros">
+        <div class="fila-acciones filtros-historial">
+          <label class="filtro-fecha" style="margin:0;">Desde
             <input type="date" id="desde-input" style="max-width:170px; margin:0;" />
           </label>
-          <label style="margin:0;">Hasta
+          <label class="filtro-fecha" style="margin:0;">Hasta
             <input type="date" id="hasta-input" style="max-width:170px; margin:0;" />
           </label>
           <label style="margin:0; flex:1; min-width:180px;">Trabajador
@@ -59,8 +60,9 @@
           <button type="button" class="boton-mini secundario" id="esta-semana-btn">Esta semana</button>
           <button type="button" class="boton-mini secundario" id="semana-pasada-btn">Semana pasada</button>
         </div>
+        </div>
         <div style="overflow-x:auto;">
-          <table>
+          <table class="tabla-tarjetas tabla-historial">
             <thead>
               <tr>
                 <th>Fecha</th><th>Nombre</th><th>DNI</th><th>Entrada</th><th>Salida</th>

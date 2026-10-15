@@ -86,23 +86,30 @@ function renderWorkers(workers) {
     .map(
       (w) => `
         <tr data-id="${w.id}">
-          <td><div class="name-cell"><div class="name-avatar">${iniciales(w.nombre)}</div>${escapeHtml(w.nombre)}</div></td>
-          <td>${escapeHtml(w.dni)}</td>
-          ${conObreros() ? `<td>${selectTipoHtml(w)}</td>` : ''}
-          ${conCategoria() ? `<td>${selectCategoriaHtml(w)}</td>` : ''}
-          <td>${etiquetaHorario(w.tipo_horario)} — <a href="/admin/trabajadores/${w.id}/horario">Configurar</a></td>
-          <td>${selectSucursalHtml(w)}</td>
-          <td><input type="date" class="input-fecha-ingreso" value="${w.fecha_ingreso ? String(w.fecha_ingreso).slice(0, 10) : ''}" style="margin:0;" /></td>
-          <td><input type="checkbox" class="input-activo" ${w.activo ? 'checked' : ''} /></td>
-          <td><input type="checkbox" class="input-horas-extra" ${w.horas_extra_activas ? 'checked' : ''} /></td>
-          <td>
+          <td class="c-nombre"><div class="name-cell"><div class="name-avatar">${iniciales(w.nombre)}</div><div><span class="nombre-fila">${escapeHtml(w.nombre)}</span><span class="sub-fila solo-movil">DNI: ${escapeHtml(w.dni)}</span></div></div></td>
+          <td class="c-dni">${escapeHtml(w.dni)}</td>
+          ${conObreros() ? `<td class="c-tipo sep-movil" data-label="Tipo">${selectTipoHtml(w)}</td>` : ''}
+          ${conCategoria() ? `<td class="c-categoria sep-movil" data-label="Categoría">${selectCategoriaHtml(w)}</td>` : ''}
+          <td class="c-horario sep-movil" data-label="Horario">${etiquetaHorario(w.tipo_horario)} — <a href="/admin/trabajadores/${w.id}/horario">Configurar</a></td>
+          <td class="c-sucursal sep-movil" data-label="Sucursal">${selectSucursalHtml(w)}</td>
+          <td class="c-fecha sep-movil" data-label="Fecha de ingreso"><input type="date" class="input-fecha-ingreso" value="${w.fecha_ingreso ? String(w.fecha_ingreso).slice(0, 10) : ''}" style="margin:0;" /></td>
+          <td class="c-activo sep-movil" data-label="Activo"><input type="checkbox" class="input-activo" ${w.activo ? 'checked' : ''} /></td>
+          <td class="c-extra sep-movil" data-label="Horas extra"><input type="checkbox" class="input-horas-extra" ${w.horas_extra_activas ? 'checked' : ''} /></td>
+          <td class="c-dispositivo">
             ${
               w.dispositivo_vinculado
-                ? '<span class="badge badge-tarde">Vinculado</span> <button type="button" class="boton-mini secundario desvincular-btn">Desvincular</button>'
+                ? '<span class="badge badge-tarde">Vinculado</span> <button type="button" class="boton-mini secundario desvincular-btn solo-escritorio">Desvincular</button>'
                 : '<span class="badge badge-a_tiempo">Sin vincular</span>'
             }
+            <span class="menu-fila solo-movil">
+              <button type="button" class="menu-fila-btn" aria-label="Más opciones">⋮</button>
+              <span class="menu-fila-lista" hidden>
+                <a href="/admin/trabajadores/${w.id}/horario">Configurar horario</a>
+                ${w.dispositivo_vinculado ? '<button type="button" class="desvincular-btn">Desvincular dispositivo</button>' : ''}
+              </span>
+            </span>
           </td>
-          <td><button type="button" class="boton-mini guardar-btn">Guardar</button></td>
+          <td class="c-acciones"><button type="button" class="boton-mini guardar-btn">Guardar</button></td>
         </tr>`
     )
     .join('');
@@ -149,7 +156,23 @@ tbody.addEventListener('change', (e) => {
   }
 });
 
+// Menu ⋮ de cada tarjeta (celular).
+function cerrarMenusFila(excepto) {
+  document.querySelectorAll('.menu-fila-lista').forEach((m) => {
+    if (m !== excepto) m.hidden = true;
+  });
+}
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.menu-fila')) cerrarMenusFila(null);
+});
+
 tbody.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('menu-fila-btn')) {
+    const lista = e.target.parentElement.querySelector('.menu-fila-lista');
+    cerrarMenusFila(lista);
+    lista.hidden = !lista.hidden;
+    return;
+  }
   if (e.target.classList.contains('desvincular-btn')) {
     if (!confirm('¿Desvincular el dispositivo de este trabajador? Podrá identificarse de nuevo desde cualquier celular.')) return;
     const id = e.target.closest('tr').dataset.id;

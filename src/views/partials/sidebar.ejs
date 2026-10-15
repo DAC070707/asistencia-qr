@@ -18,8 +18,43 @@
     logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>'
   };
 %>
-<aside class="sidebar">
-  <a href="<%= typeof superadmin !== 'undefined' && superadmin ? '/superadmin' : '/admin' %>" class="sidebar-brand">
+<%
+  const __esSuper = typeof superadmin !== 'undefined' && superadmin;
+  const __inicio = __esSuper ? '/superadmin' : '/admin';
+  const __nombreEmpresa = __esSuper ? 'Súper-admin' : (typeof empresaNombre !== 'undefined' && empresaNombre ? empresaNombre : '');
+%>
+<!-- Solo en celular: barra superior con menu, logo, empresa y usuario -->
+<header class="barra-movil">
+  <button type="button" class="barra-movil-btn" id="abrir-menu" aria-label="Abrir menú" aria-controls="menu-lateral" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+  </button>
+  <a href="<%= __inicio %>" class="barra-movil-logo"><img src="/dana.png" alt="Dana" /></a>
+  <% if (__nombreEmpresa) { %>
+    <span class="barra-movil-empresa">
+      <span class="barra-movil-empresa-icono"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><%- __icons.building %></svg></span>
+      <span class="barra-movil-empresa-nombre"><%= __nombreEmpresa %></span>
+    </span>
+  <% } %>
+  <div class="barra-movil-usuario">
+    <button type="button" class="barra-movil-btn barra-movil-avatar" id="abrir-usuario" aria-label="Cuenta" aria-expanded="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+    </button>
+    <div class="menu-usuario" id="menu-usuario" hidden>
+      <% if (__nombreEmpresa) { %><p class="menu-usuario-empresa"><%= __nombreEmpresa %></p><% } %>
+      <button type="button" class="menu-usuario-salir" id="salir-movil">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><%- __icons.logout %></svg>
+        Salir
+      </button>
+    </div>
+  </div>
+</header>
+<div class="menu-fondo" id="menu-fondo" hidden></div>
+
+<aside class="sidebar" id="menu-lateral">
+  <button type="button" class="sidebar-cerrar" id="cerrar-menu" aria-label="Cerrar menú">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button>
+  <a href="<%= __inicio %>" class="sidebar-brand">
     <img src="/dana.png" alt="Dana" class="sidebar-logo" />
   </a>
   <nav class="sidebar-nav">
@@ -39,3 +74,45 @@
     <span>Salir</span>
   </a>
 </aside>
+<script>
+  // Celular: menu lateral deslizable y menu de usuario.
+  (function () {
+    var cuerpo = document.body;
+    var fondo = document.getElementById('menu-fondo');
+    var abrir = document.getElementById('abrir-menu');
+    var menuUsuario = document.getElementById('menu-usuario');
+    var botonUsuario = document.getElementById('abrir-usuario');
+
+    function menuLateral(abierto) {
+      cuerpo.classList.toggle('menu-abierto', abierto);
+      fondo.hidden = !abierto;
+      abrir.setAttribute('aria-expanded', String(abierto));
+    }
+    function usuario(abierto) {
+      menuUsuario.hidden = !abierto;
+      botonUsuario.setAttribute('aria-expanded', String(abierto));
+    }
+
+    abrir.addEventListener('click', function () { menuLateral(true); });
+    document.getElementById('cerrar-menu').addEventListener('click', function () { menuLateral(false); });
+    fondo.addEventListener('click', function () { menuLateral(false); });
+    document.querySelectorAll('#menu-lateral .sidebar-link').forEach(function (a) {
+      a.addEventListener('click', function () { menuLateral(false); });
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') { menuLateral(false); usuario(false); }
+    });
+
+    botonUsuario.addEventListener('click', function (e) {
+      e.stopPropagation();
+      usuario(menuUsuario.hidden);
+    });
+    document.addEventListener('click', function (e) {
+      if (!menuUsuario.hidden && !menuUsuario.contains(e.target)) usuario(false);
+    });
+    // "Salir" usa el mismo enlace de cierre de sesion de la barra lateral.
+    document.getElementById('salir-movil').addEventListener('click', function () {
+      document.getElementById('logout-link').click();
+    });
+  })();
+</script>
