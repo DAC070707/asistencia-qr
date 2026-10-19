@@ -57,31 +57,62 @@ async function buscarAsistenciaDeHoy(workerId) {
   return db('attendance').where({ worker_id: workerId, fecha }).first();
 }
 
-// Margen despues de la salida programada de un turno noche en el que todavia
-// se acepta marcar su salida.
-const MARGEN_SALIDA_NOCHE_MS = 8 * 60 * 60 * 1000;
+const HORA_MS = 60 * 60 * 1000;
+// Turno noche (cruza medianoche): su salida se acepta hasta 8 h despues de la
+// salida programada del dia siguiente.
+const MARGEN_SALIDA_NOCHE_MS = 8 * HORA_MS;
+// Turno de dia que se extiende pasada la medianoche (ej. salida 23:30 y sale
+// a la 01:00): la salida se acepta hasta 6 h despues de su salida programada.
+// Ese tiempo cuenta como horas extra.
+const MARGEN_SALIDA_TARDE_MS = 6 * HORA_MS;
+// En ningun caso se acepta dentro de las 2 h previas a la entrada programada
+// del dia siguiente, para no mezclarse con la jornada nueva.
+const ANTES_DE_LA_SIGUIENTE_ENTRADA_MS = 2 * HORA_MS;
 // Sin horario: hasta cuantas horas despues de la entrada de ayer se considera
 // que la jornada sigue abierta.
-const JORNADA_SIN_HORARIO_MS = 14 * 60 * 60 * 1000;
+const JORNADA_SIN_HORARIO_MS = 18 * HORA_MS;
+
+function fechaLimaDe(ms) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Lima',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).format(new Date(ms));
+}
+
+function instanteLima(fechaTxt, hora) {
+  return limaLocalInputToDate(`${fechaTxt}T${String(hora).slice(0, 5)}`).getTime();
+}
 
 // Jornada sobre la que se marca salida o refrigerio: la de hoy, o la de ayer
-// si sigue abierta porque es un turno que cruza medianoche (turno noche).
-// Un turno de dia sin salida marcada ayer no se arrastra a hoy.
-async function buscarJornadaAbierta(workerId) {
-  const deHoy = await buscarAsistenciaDeHoy(workerId);
+// si sigue abierta porque la salida se marca pasada la medianoche (turno
+// noche, o un turno que se extendio). "ahora" solo se pasa en pruebas.
+async function buscarJornadaAbierta(workerId, { ahora = Date.now() } = {}) {
+  const hoy = fechaLimaDe(ahora);
+  const deHoy = await db('attendance').where({ worker_id: workerId, fecha: hoy }).first();
   if (deHoy) return deHoy;
 
-  const hoy = hoyLima();
   const ayer = sumarDias(hoy, -1);
-  const registro = await db('attendance').where({ worker_id: workerId, fecha: ayer }).whereNull('hora_salida').first();
+  // La jornada de ayer sin salida, o cuya salida ya se marco pasada la
+  // medianoche: dentro del margen sigue siendo "su jornada" (asi un segundo
+  // escaneo muestra "ya marcaste" y no abre una entrada nueva a la 01:00).
+  const registro = await db('attendance')
+    .where({ worker_id: workerId, fecha: ayer })
+    .andWhere((q) => q.whereNull('hora_salida').orWhere('hora_salida', '>=', new Date(instanteLima(hoy, '00:00'))))
+    .first();
   if (!registro) return null;
 
   const horario = await resolverHorarioDelDia(workerId, ayer);
-  const ahora = Date.now();
-  if (horario && !horario.libre) {
-    if (!cruzaMedianoche(horario)) return null;
-    const salida = limaLocalInputToDate(`${hoy}T${String(horario.horaSalida).slice(0, 5)}`).getTime();
-    return ahora <= salida + MARGEN_SALIDA_NOCHE_MS ? registro : null;
+  if (horario && !horario.libre && horario.horaSalida) {
+    let limite = cruzaMedianoche(horario)
+      ? instanteLima(hoy, horario.horaSalida) + MARGEN_SALIDA_NOCHE_MS
+      : instanteLima(ayer, horario.horaSalida) + MARGEN_SALIDA_TARDE_MS;
+    const horarioDeHoy = await resolverHorarioDelDia(workerId, hoy);
+    if (horarioDeHoy && !horarioDeHoy.libre && horarioDeHoy.horaEntrada) {
+      limite = Math.min(limite, instanteLima(hoy, horarioDeHoy.horaEntrada) - ANTES_DE_LA_SIGUIENTE_ENTRADA_MS);
+    }
+    return ahora <= limite ? registro : null;
   }
   return ahora - new Date(registro.creado_en).getTime() <= JORNADA_SIN_HORARIO_MS ? registro : null;
 }
@@ -110,8 +141,9 @@ async function marcarEntrada({ workerId, dailyCodeId, empresaId, sucursalId, geo
   return { registro: creado, yaExistia: false };
 }
 
-async function marcarSalida({ workerId, geo }) {
-  const existente = await buscarJornadaAbierta(workerId);
+// "ahora" solo se pasa en pruebas.
+async function marcarSalida({ workerId, geo, ahora = Date.now() }) {
+  const existente = await buscarJornadaAbierta(workerId, { ahora });
   if (!existente) {
     return { error: 'sin_entrada' };
   }
@@ -119,7 +151,7 @@ async function marcarSalida({ workerId, geo }) {
     return { registro: existente, yaExistia: true };
   }
 
-  const horaSalida = new Date();
+  const horaSalida = new Date(ahora);
   const worker = await db('workers').where({ id: workerId }).first();
   const horario = await resolverHorarioDelDia(workerId, existente.fecha);
   const { extra25, extra35 } = worker.horas_extra_activas
