@@ -6,6 +6,9 @@ const horarioService = require('../services/horario.service');
 const sucursalService = require('../services/sucursal.service');
 const intentosService = require('../services/intentos.service');
 const env = require('../config/env');
+const bcrypt = require('bcryptjs');
+const { PERMISOS, tienePermiso } = require('../middleware/permisos');
+const { errorDeNuevaPassword, generarTemporal } = require('../utils/password');
 const db = require('../config/db');
 const { hoyLima, limaLocalInputToDate } = require('../utils/limaDate');
 
@@ -20,8 +23,21 @@ function formatoFecha(valor) {
   return new Date(valor).toISOString().slice(0, 10);
 }
 
-async function workerDeEmpresa(workerId, empresaId) {
-  return db('workers').where({ id: workerId, empresa_id: empresaId }).first();
+async function workerDeEmpresa(workerId, empresaId, sucursalId = null) {
+  const q = db('workers').where({ id: workerId, empresa_id: empresaId });
+  if (sucursalId) q.andWhere({ sucursal_id: sucursalId });
+  return q.first();
+}
+
+// El registro de asistencia es de un trabajador de la sucursal del usuario
+// (si esta restringido a una).
+async function registroPermitido(admin, attendanceId) {
+  if (!admin.sucursalId) return true;
+  const fila = await db('attendance')
+    .join('workers', 'workers.id', 'attendance.worker_id')
+    .where({ 'attendance.id': attendanceId, 'attendance.empresa_id': admin.empresaId, 'workers.sucursal_id': admin.sucursalId })
+    .first('attendance.id');
+  return Boolean(fila);
 }
 
 async function nombreDeEmpresa(empresaId) {
@@ -121,7 +137,8 @@ function serializarSucursal(s) {
 }
 
 async function listarSucursales(req, res) {
-  const sucursales = await sucursalService.listar(req.admin.empresaId);
+  let sucursales = await sucursalService.listar(req.admin.empresaId);
+  if (req.admin.sucursalId) sucursales = sucursales.filter((s) => s.id === req.admin.sucursalId);
   res.json(sucursales.map(serializarSucursal));
 }
 
@@ -231,7 +248,7 @@ async function paginaTrabajadores(req, res) {
 }
 
 async function paginaHorarioTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId, req.admin.sucursalId);
   if (!worker) {
     return res.status(404).send('Trabajador no encontrado');
   }
@@ -256,7 +273,8 @@ async function paginaConfiguracion(req, res) {
     admin: req.admin,
     empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
     logoEmpresaUrl: `/logo/${req.admin.empresaId}`,
-    googleMapsApiKey: env.googleMapsApiKey
+    googleMapsApiKey: env.googleMapsApiKey,
+    puedeConfigurar: tienePermiso(req.admin, 'configuracion')
   });
 }
 
@@ -269,7 +287,8 @@ async function listarIntentosRechazados(req, res) {
 // Resuelve la sucursal del parametro sucursal_id (query o body); sin parametro
 // es la Principal. Un id de otra empresa responde 404 y devuelve null.
 async function sucursalDeRequest(req, res, origen) {
-  const sucursal = await sucursalService.resolverParaAdmin(origen.sucursal_id, req.admin.empresaId);
+  const pedida = req.admin.sucursalId || origen.sucursal_id;
+  const sucursal = await sucursalService.resolverParaAdmin(pedida, req.admin.empresaId);
   if (!sucursal) {
     res.status(404).json({ error: 'Sucursal no encontrada' });
     return null;
@@ -326,7 +345,7 @@ async function asistenciaDeHoy(req, res) {
   res.json(registros);
 }
 
-function parametrosRango(query) {
+function parametrosRango(query, admin = null) {
   const hoy = hoyLima();
   const desde = query.desde || query.fecha || hoy;
   const hasta = query.hasta || query.fecha || hoy;
@@ -342,11 +361,15 @@ function parametrosRango(query) {
     return { error: 'La fecha "desde" no puede ser posterior a "hasta"' };
   }
   const tipoTrabajador = ['empleado', 'obrero'].includes(query.tipo) ? query.tipo : null;
+  // Usuario limitado a una sucursal: solo ve a los trabajadores de su local.
+  if (admin && admin.sucursalId) {
+    return { desde, hasta, workerId, sucursalAsignadaId: admin.sucursalId, tipoTrabajador };
+  }
   return { desde, hasta, workerId, sucursalAsignadaId, tipoTrabajador };
 }
 
 async function asistenciaPorFecha(req, res) {
-  const rango = parametrosRango(req.query);
+  const rango = parametrosRango(req.query, req.admin);
   if (rango.error) {
     return res.status(400).json({ error: rango.error });
   }
@@ -400,7 +423,7 @@ function estiloEncabezado(fila) {
 }
 
 async function exportarExcel(req, res) {
-  const rango = parametrosRango(req.query);
+  const rango = parametrosRango(req.query, req.admin);
   if (rango.error) {
     return res.status(400).json({ error: rango.error });
   }
@@ -420,6 +443,10 @@ async function exportarExcel(req, res) {
     tipoTrabajador: conObreros ? tipoTrabajador : null
   });
   const empresaNombre = empresa.nombre;
+  // Nombres de quienes corrigieron marcaciones (incluye usuarios eliminados).
+  const nombresUsuarios = new Map(
+    (await db('admins').where({ empresa_id: req.admin.empresaId }).select('id', 'nombre', 'email')).map((a) => [a.id, a.nombre || a.email])
+  );
 
   // Rotulos de horas extra: con un solo juego de porcentajes van en el
   // encabezado ("Horas extra 25%"); si empleados y obreros tienen distintos,
@@ -541,6 +568,11 @@ async function exportarExcel(req, res) {
     titulo: 'Observaciones (Colocar si hubo inasistencia)',
     valor: (f) => (f.inasistencia ? 'Inasistencia' : f.descansoTrabajado && conObreros ? 'Trabajó en día de descanso' : '')
   });
+  columnasDetalle.push({
+    ancho: 22,
+    titulo: 'Corregido por',
+    valor: (f) => (f.editadoPor ? nombresUsuarios.get(f.editadoPor) || '' : '')
+  });
 
   const hojaDetalle = workbook.addWorksheet('Detalle');
   hojaDetalle.columns = columnasDetalle.map((c, i) => ({ key: 'c' + i, width: c.ancho }));
@@ -660,8 +692,9 @@ async function exportarExcel(req, res) {
 
 async function listarWorkers(req, res) {
   // tipo_horario = tipo del horario vigente hoy (null si no tiene).
-  const workers = await db('workers')
-    .where({ empresa_id: req.admin.empresaId })
+  const query = db('workers').where({ empresa_id: req.admin.empresaId });
+  if (req.admin.sucursalId) query.andWhere({ sucursal_id: req.admin.sucursalId });
+  const workers = await query
     .orderBy('nombre', 'asc')
     .select(
       'workers.*',
@@ -685,6 +718,15 @@ async function actualizarWorker(req, res) {
     tipo_trabajador,
     categoria
   } = req.body;
+
+  if (req.admin.sucursalId) {
+    if (!(await workerDeEmpresa(id, req.admin.empresaId, req.admin.sucursalId))) {
+      return res.status(404).json({ error: 'Trabajador no encontrado' });
+    }
+    if (sucursal_id !== undefined && Number(sucursal_id) !== req.admin.sucursalId) {
+      return res.status(403).json({ error: 'Solo puedes asignar trabajadores a tu sucursal' });
+    }
+  }
 
   const cambios = {};
   if (sucursal_id !== undefined) {
@@ -757,6 +799,10 @@ async function editarAsistencia(req, res) {
     return res.status(400).json({ error: 'Fecha/hora invalida' });
   }
 
+  if (!(await registroPermitido(req.admin, id))) {
+    return res.status(404).json({ error: 'Registro no encontrado' });
+  }
+
   const actualizado = await attendanceService.editarRegistro(
     id,
     { horaEntrada, horaSalida },
@@ -777,6 +823,10 @@ async function cambiarEstadoHorasExtra(req, res) {
     return res.status(400).json({ error: 'Estado invalido, usa "aprobado" o "rechazado"' });
   }
 
+  if (!(await registroPermitido(req.admin, id))) {
+    return res.status(404).json({ error: 'Registro no encontrado' });
+  }
+
   const actualizado = await attendanceService.cambiarEstadoHorasExtra(
     id,
     estado,
@@ -792,7 +842,7 @@ async function cambiarEstadoHorasExtra(req, res) {
 // ---- Horarios del trabajador (versiones con fecha de vigencia) ----
 
 async function listarHorariosTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId, req.admin.sucursalId);
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
@@ -902,7 +952,7 @@ async function validarHorarioDelBody(body, empresaId) {
 // Nuevo horario vigente desde una fecha. El horario anterior queda intacto
 // para las fechas previas; las horas extra se recalculan desde esa fecha.
 async function crearHorarioTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId, req.admin.sucursalId);
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
@@ -915,7 +965,7 @@ async function crearHorarioTrabajador(req, res) {
 }
 
 async function actualizarHorarioTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId, req.admin.sucursalId);
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
@@ -936,7 +986,7 @@ async function actualizarHorarioTrabajador(req, res) {
 }
 
 async function eliminarHorarioTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId, req.admin.sucursalId);
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
@@ -1014,7 +1064,7 @@ async function eliminarTurno(req, res) {
 // ---- Excepciones puntuales ----
 
 async function listarExcepcionesTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId, req.admin.sucursalId);
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
@@ -1022,7 +1072,7 @@ async function listarExcepcionesTrabajador(req, res) {
 }
 
 async function crearExcepcionTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId, req.admin.sucursalId);
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
@@ -1052,7 +1102,7 @@ async function crearExcepcionTrabajador(req, res) {
 }
 
 async function eliminarExcepcionTrabajador(req, res) {
-  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId);
+  const worker = await workerDeEmpresa(req.params.id, req.admin.empresaId, req.admin.sucursalId);
   if (!worker) {
     return res.status(404).json({ error: 'Trabajador no encontrado' });
   }
@@ -1065,7 +1115,168 @@ async function eliminarExcepcionTrabajador(req, res) {
   res.json({ ok: true });
 }
 
+// ---- Usuarios adicionales (solo el admin principal) ----
+
+const PERFILES_PERMISOS = PERMISOS; // claves validas
+
+function limpiarPermisos(lista, sucursalId) {
+  const permisos = [...new Set((Array.isArray(lista) ? lista : []).filter((p) => PERFILES_PERMISOS.includes(p)))];
+  // La configuracion es de toda la empresa: no aplica a un usuario limitado a una sucursal.
+  return sucursalId ? permisos.filter((p) => p !== 'configuracion') : permisos;
+}
+
+function serializarUsuario(a) {
+  return {
+    id: a.id,
+    nombre: a.nombre,
+    email: a.email,
+    rol: a.rol,
+    permisos: a.rol === 'principal' ? ['todos'] : a.permisos || [],
+    sucursalId: a.sucursal_id,
+    sucursalNombre: a.sucursal_nombre || null,
+    activo: a.activo,
+    debeCambiarPassword: a.debe_cambiar_password,
+    creadoEn: a.creado_en
+  };
+}
+
+async function cupoDeEmpresa(empresaId) {
+  const empresa = await db('empresas').where({ id: empresaId }).first('limite_usuarios_adicionales');
+  const { n } = await db('admins')
+    .where({ empresa_id: empresaId, rol: 'adicional' })
+    .whereNull('eliminado_en')
+    .count('* as n')
+    .first();
+  return { limite: empresa ? empresa.limite_usuarios_adicionales : 0, usados: Number(n) };
+}
+
+async function paginaUsuarios(req, res) {
+  res.render('admin/usuarios', {
+    admin: req.admin,
+    empresaNombre: await nombreDeEmpresa(req.admin.empresaId),
+    logoEmpresaUrl: `/logo/${req.admin.empresaId}`
+  });
+}
+
+async function listarUsuarios(req, res) {
+  const usuarios = await db('admins')
+    .leftJoin('sucursales', 'sucursales.id', 'admins.sucursal_id')
+    .where('admins.empresa_id', req.admin.empresaId)
+    .whereNull('admins.eliminado_en')
+    .orderByRaw("CASE WHEN admins.rol = 'principal' THEN 0 ELSE 1 END, admins.creado_en")
+    .select('admins.*', 'sucursales.nombre as sucursal_nombre');
+  res.json({ cupo: await cupoDeEmpresa(req.admin.empresaId), usuarios: usuarios.map(serializarUsuario) });
+}
+
+// Valida nombre / sucursal / permisos comunes a crear y editar.
+async function datosDeUsuario(body, empresaId) {
+  const nombre = typeof body.nombre === 'string' ? body.nombre.trim() : '';
+  if (nombre.length < 2) return { error: 'Escribe el nombre del usuario' };
+  let sucursalId = null;
+  if (body.sucursalId !== undefined && body.sucursalId !== null && body.sucursalId !== '') {
+    const sucursal = await sucursalService.obtenerDeEmpresa(Number(body.sucursalId), empresaId);
+    if (!sucursal) return { error: 'Sucursal invalida' };
+    sucursalId = sucursal.id;
+  }
+  return { datos: { nombre, sucursal_id: sucursalId, permisos: JSON.stringify(limpiarPermisos(body.permisos, sucursalId)) } };
+}
+
+async function crearUsuario(req, res) {
+  const { limite, usados } = await cupoDeEmpresa(req.admin.empresaId);
+  if (usados >= limite) {
+    return res.status(409).json({ error: `Ya usaste tu cupo de ${limite} usuario(s) adicional(es). Para más usuarios, comunícate con Dana.` });
+  }
+  const { error, datos } = await datosDeUsuario(req.body || {}, req.admin.empresaId);
+  if (error) return res.status(400).json({ error });
+
+  const email = String(req.body.email || '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Correo inválido' });
+  const errorClave = errorDeNuevaPassword(req.body.password);
+  if (errorClave) return res.status(400).json({ error: errorClave.replace('La nueva contraseña', 'La contraseña') });
+  if (await db('admins').where({ email }).first()) {
+    return res.status(409).json({ error: 'Ya existe un usuario con ese correo' });
+  }
+
+  const [creado] = await db('admins')
+    .insert({
+      ...datos,
+      email,
+      password_hash: await bcrypt.hash(req.body.password, 10),
+      empresa_id: req.admin.empresaId,
+      rol: 'adicional',
+      activo: true,
+      debe_cambiar_password: true,
+      creado_por: req.admin.id
+    })
+    .returning('*');
+  res.status(201).json(serializarUsuario(creado));
+}
+
+async function usuarioAdicionalDeEmpresa(id, empresaId) {
+  return db('admins').where({ id, empresa_id: empresaId, rol: 'adicional' }).whereNull('eliminado_en').first();
+}
+
+async function actualizarUsuario(req, res) {
+  const usuario = await usuarioAdicionalDeEmpresa(req.params.id, req.admin.empresaId);
+  if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  const cambios = {};
+  if (req.body.nombre !== undefined || req.body.permisos !== undefined || req.body.sucursalId !== undefined) {
+    const { error, datos } = await datosDeUsuario(
+      {
+        nombre: req.body.nombre ?? usuario.nombre,
+        sucursalId: req.body.sucursalId !== undefined ? req.body.sucursalId : usuario.sucursal_id,
+        permisos: req.body.permisos ?? usuario.permisos
+      },
+      req.admin.empresaId
+    );
+    if (error) return res.status(400).json({ error });
+    Object.assign(cambios, datos);
+  }
+  if (typeof req.body.activo === 'boolean') cambios.activo = req.body.activo;
+  if (Object.keys(cambios).length === 0) return res.status(400).json({ error: 'Nada que actualizar' });
+
+  const [actualizado] = await db('admins').where({ id: usuario.id }).update(cambios).returning('*');
+  res.json(serializarUsuario(actualizado));
+}
+
+async function restablecerPasswordUsuario(req, res) {
+  const usuario = await usuarioAdicionalDeEmpresa(req.params.id, req.admin.empresaId);
+  if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+  const temporal = generarTemporal();
+  await db('admins')
+    .where({ id: usuario.id })
+    .update({
+      password_hash: await bcrypt.hash(temporal, 10),
+      password_cambiado_en: new Date(Math.floor(Date.now() / 1000) * 1000),
+      debe_cambiar_password: true
+    });
+  res.json({ email: usuario.email, passwordTemporal: temporal });
+}
+
+// Borrado logico: libera el cupo y el correo; el nombre se conserva para que
+// sus correcciones sigan mostrando quien las hizo.
+async function eliminarUsuario(req, res) {
+  const usuario = await usuarioAdicionalDeEmpresa(req.params.id, req.admin.empresaId);
+  if (!usuario) return res.status(404).json({ error: 'Usuario no encontrado' });
+  await db('admins')
+    .where({ id: usuario.id })
+    .update({
+      eliminado_en: db.fn.now(),
+      activo: false,
+      email: `eliminado-${usuario.id}-${usuario.email}`,
+      nombre: usuario.nombre || usuario.email
+    });
+  res.json({ ok: true });
+}
+
 module.exports = {
+  paginaUsuarios,
+  listarUsuarios,
+  crearUsuario,
+  actualizarUsuario,
+  restablecerPasswordUsuario,
+  eliminarUsuario,
   paginaLogin,
   paginaDashboard,
   paginaHistorial,

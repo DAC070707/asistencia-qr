@@ -26,6 +26,7 @@
         </div>
       </div>
 
+      <% if (puedeConfigurar) { %>
       <div class="grid-2">
         <div class="card">
           <h2>Logo de tu empresa</h2>
@@ -143,6 +144,8 @@
           </table>
         </div>
       </div>
+      <% } %>
+
       <div class="card" id="mi-cuenta">
         <h2>Mi cuenta</h2>
         <p class="card-sub">Cuenta: <strong><%= admin.email %></strong>. Cambia tu contraseña cuando quieras; al hacerlo se cierran las sesiones abiertas en otros equipos.</p>
@@ -164,8 +167,18 @@
     </main>
   </div>
 
+  <% if (puedeConfigurar) { %>
   <script>window.DANA_GOOGLE_MAPS_KEY = <%- JSON.stringify(googleMapsApiKey || null) %>;</script>
   <script src="/js/admin-configuracion.js"></script>
+  <% } else { %>
+  <script>
+    document.getElementById('logout-link').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/admin/login';
+    });
+  </script>
+  <% } %>
   <script src="/js/mi-cuenta.js"></script>
 </body>
 </html>

@@ -32,9 +32,16 @@ async function requireAdminAuth(req, res, next) {
         'admins.empresa_id',
         'admins.password_cambiado_en',
         'admins.debe_cambiar_password',
+        'admins.rol',
+        'admins.nombre',
+        'admins.permisos',
+        'admins.sucursal_id',
+        'admins.activo',
+        'admins.eliminado_en',
         'empresas.estado_cuenta'
       );
-    if (!fila || tokenAnteriorAlCambio(payload.iat, fila.password_cambiado_en)) {
+    // Usuario desactivado o eliminado por el admin principal: se cierra la sesion.
+    if (!fila || !fila.activo || fila.eliminado_en || tokenAnteriorAlCambio(payload.iat, fila.password_cambiado_en)) {
       res.clearCookie('admin_token');
       return redirectOrJson(req, res);
     }
@@ -46,7 +53,16 @@ async function requireAdminAuth(req, res, next) {
       return res.status(403).render('admin/suspendida');
     }
 
-    req.admin = { id: fila.id, email: fila.email, empresaId: fila.empresa_id };
+    req.admin = {
+      id: fila.id,
+      email: fila.email,
+      empresaId: fila.empresa_id,
+      rol: fila.rol,
+      nombre: fila.nombre,
+      permisos: Array.isArray(fila.permisos) ? fila.permisos : [],
+      sucursalId: fila.rol === 'adicional' ? fila.sucursal_id : null
+    };
+    res.locals.usuario = { rol: req.admin.rol, permisos: req.admin.permisos, sucursalId: req.admin.sucursalId };
     res.locals.estadoCuenta = fila.estado_cuenta;
     res.locals.debeCambiarPassword = Boolean(fila.debe_cambiar_password);
     return next();

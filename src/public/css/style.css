@@ -493,6 +493,17 @@ button:disabled:hover { background: var(--blue); }
 }
 .menu-usuario-opcion svg { width: 18px; height: 18px; }
 
+/* Quien corrigio una marcacion / aprobo horas extra (Historial) */
+.auditoria { display: block; margin-top: 3px; font-size: .7rem; color: var(--muted); font-weight: 500; line-height: 1.3; }
+
+/* Usuarios adicionales: perfiles y permisos */
+.perfiles { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+.perfiles .boton-mini.activo { background: var(--blue); color: #fff; border-color: var(--blue); }
+.permisos-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 8px 16px; margin-bottom: 14px; }
+.permiso { display: flex; align-items: flex-start; gap: 10px; margin: 0; font-weight: 400; text-transform: none; letter-spacing: 0; font-size: .86rem; color: var(--ink); line-height: 1.35; }
+.permiso input[type="checkbox"] { margin-top: 1px; }
+.permiso input[disabled] + span { opacity: .65; }
+
 /* Estado de cuenta (super-admin) */
 .estado-cuenta { display: inline-flex; flex-direction: column; align-items: flex-start; }
 .admin-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 2px 0; font-size: .85rem; }

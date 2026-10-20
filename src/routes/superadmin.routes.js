@@ -27,6 +27,11 @@ router.patch(
   requireSuperAdminAuth,
   asyncHandler(superadminController.cambiarEstadoEmpresa)
 );
+router.patch(
+  '/api/superadmin/empresas/:id/limite-usuarios',
+  requireSuperAdminAuth,
+  asyncHandler(superadminController.cambiarLimiteUsuarios)
+);
 router.post(
   '/api/superadmin/admins/:id/restablecer-password',
   requireSuperAdminAuth,

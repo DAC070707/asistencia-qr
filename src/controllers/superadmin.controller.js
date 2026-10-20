@@ -67,9 +67,14 @@ async function listarEmpresas(req, res) {
       )
     )
     .orderBy('empresas.creado_en', 'desc');
-  const admins = await db('admins').select('id', 'email', 'empresa_id', 'debe_cambiar_password').orderBy('email');
+  const admins = await db('admins')
+    .whereNull('eliminado_en')
+    .select('id', 'email', 'nombre', 'rol', 'activo', 'empresa_id', 'debe_cambiar_password')
+    .orderByRaw("CASE WHEN rol = 'principal' THEN 0 ELSE 1 END, email");
   for (const e of empresas) {
-    e.admins = admins.filter((a) => a.empresa_id === e.id).map((a) => ({ id: a.id, email: a.email, debeCambiarPassword: a.debe_cambiar_password }));
+    e.admins = admins
+      .filter((a) => a.empresa_id === e.id)
+      .map((a) => ({ id: a.id, email: a.email, nombre: a.nombre, rol: a.rol, activo: a.activo, debeCambiarPassword: a.debe_cambiar_password }));
   }
   res.json(empresas);
 }
@@ -87,6 +92,20 @@ async function cambiarEstadoEmpresa(req, res) {
     .where({ id: req.params.id })
     .update({ estado_cuenta: estadoCuenta, activo: estadoCuenta !== 'suspendida', estado_cuenta_en: db.fn.now() })
     .returning(['id', 'nombre', 'estado_cuenta', 'activo']);
+  if (!empresa) return res.status(404).json({ error: 'Empresa no encontrada' });
+  res.json(empresa);
+}
+
+// Cuantos usuarios adicionales puede crear el admin principal de la empresa.
+async function cambiarLimiteUsuarios(req, res) {
+  const limite = Number(req.body?.limite);
+  if (!Number.isInteger(limite) || limite < 0 || limite > 20) {
+    return res.status(400).json({ error: 'El límite debe ser un entero entre 0 y 20' });
+  }
+  const [empresa] = await db('empresas')
+    .where({ id: req.params.id })
+    .update({ limite_usuarios_adicionales: limite })
+    .returning(['id', 'limite_usuarios_adicionales']);
   if (!empresa) return res.status(404).json({ error: 'Empresa no encontrada' });
   res.json(empresa);
 }
@@ -171,6 +190,7 @@ module.exports = {
   listarEmpresas,
   crearEmpresa,
   cambiarEstadoEmpresa,
+  cambiarLimiteUsuarios,
   restablecerPasswordAdmin,
   cambiarPassword
 };

@@ -160,6 +160,13 @@ cargarSucursales().then(() => {
   cargarQr();
   cargarAsistenciaHoy();
 });
+// Sin permiso para administrar el QR no se muestra el boton de invalidarlo.
+fetch('/api/auth/me')
+  .then((r) => (r.ok ? r.json() : null))
+  .then((sesion) => {
+    if (sesion && sesion.puede && !sesion.puede.administrar_qr) document.getElementById('regenerar-btn').hidden = true;
+  })
+  .catch(() => {});
 actualizarSaludoYFecha();
 actualizarReloj();
 setInterval(cargarAsistenciaHoy, POLL_MS);

@@ -541,6 +541,8 @@ async function construirGrillaAsistencia({ empresaId, desde, hasta, workerId, su
           horasNocturnas: calcularHorasNocturnas({ horaEntrada: registro.creado_en, horaSalida: registro.hora_salida }),
           turno: horario && !horario.libre ? (horario.turno || (cruzaMedianoche(horario) ? 'noche' : 'dia')) : null,
           descansoTrabajado: Boolean(horario && horario.libre),
+          editadoPor: registro.editado_por,
+          editadoEn: registro.editado_en,
           inasistencia: false
         });
         continue;

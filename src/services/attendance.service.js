@@ -20,7 +20,10 @@ const COLUMNAS_ASISTENCIA = [
   'attendance.refrigerio_salida_en',
   'attendance.refrigerio_regreso_en',
   'attendance.sucursal_id',
-  'sucursales.nombre as sucursal_nombre'
+  'sucursales.nombre as sucursal_nombre',
+  'attendance.horas_extra_aprobado_en',
+  db.raw('COALESCE(editor.nombre, editor.email) as editado_por_nombre'),
+  db.raw('COALESCE(aprobador.nombre, aprobador.email) as aprobado_por_nombre')
 ];
 
 async function buscarOCrearWorker({ dni, nombre, empresaId }) {
@@ -285,6 +288,9 @@ async function listarAsistencia({ empresaId, desde, hasta, workerId, sucursalAsi
   const query = db('attendance')
     .join('workers', 'workers.id', 'attendance.worker_id')
     .leftJoin('sucursales', 'sucursales.id', 'attendance.sucursal_id')
+    // Quien corrigio la marcacion y quien aprobo/rechazo las horas extra.
+    .leftJoin('admins as editor', 'editor.id', 'attendance.editado_por')
+    .leftJoin('admins as aprobador', 'aprobador.id', 'attendance.horas_extra_aprobado_por')
     .where('attendance.empresa_id', empresaId)
     .andWhere('attendance.fecha', '>=', desde)
     .andWhere('attendance.fecha', '<=', hasta)

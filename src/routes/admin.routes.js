@@ -2,6 +2,7 @@ const express = require('express');
 const multer = require('multer');
 const adminController = require('../controllers/admin.controller');
 const requireAdminAuth = require('../middleware/requireAdminAuth');
+const { requirePermiso, requirePrincipal, requireSinRestriccionDeSucursal } = require('../middleware/permisos');
 const asyncHandler = require('../utils/asyncHandler');
 
 const router = express.Router();
@@ -21,15 +22,15 @@ router.get('/admin', requireAdminAuth, asyncHandler(adminController.paginaDashbo
 router.get('/admin/historial', requireAdminAuth, asyncHandler(adminController.paginaHistorial));
 router.get(
   '/admin/trabajadores',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_trabajadores', 'gestionar_horarios'),
   asyncHandler(adminController.paginaTrabajadores)
 );
 router.get(
   '/admin/trabajadores/:id/horario',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'),
   asyncHandler(adminController.paginaHorarioTrabajador)
 );
-router.get('/admin/turnos', requireAdminAuth, asyncHandler(adminController.paginaTurnos));
+router.get('/admin/turnos', requireAdminAuth, requirePermiso('gestionar_horarios'), asyncHandler(adminController.paginaTurnos));
 router.get(
   '/admin/configuracion',
   requireAdminAuth,
@@ -45,7 +46,7 @@ router.get(
 );
 router.post(
   '/api/admin/qr/regenerate',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('administrar_qr'),
   asyncHandler(adminController.regenerarQr)
 );
 router.get(
@@ -66,22 +67,22 @@ router.get(
 router.get('/api/admin/workers', requireAdminAuth, asyncHandler(adminController.listarWorkers));
 router.patch(
   '/api/admin/workers/:id',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_trabajadores'),
   asyncHandler(adminController.actualizarWorker)
 );
 router.patch(
   '/api/admin/attendance/:id',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('corregir_marcaciones'),
   asyncHandler(adminController.editarAsistencia)
 );
 router.post(
   '/api/admin/attendance/:id/horas-extra',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('aprobar_horas_extra'),
   asyncHandler(adminController.cambiarEstadoHorasExtra)
 );
 router.post(
   '/api/admin/empresa/logo',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('configuracion'),
   uploadLogo.single('logo'),
   asyncHandler(adminController.subirLogo)
 );
@@ -94,76 +95,89 @@ router.get(
 );
 router.patch(
   '/api/admin/empresa/configuracion',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('configuracion'),
   asyncHandler(adminController.guardarConfiguracionEmpresa)
 );
 
 // Sucursales (QR, ubicacion y trabajadores por local)
 router.get('/api/admin/sucursales', requireAdminAuth, asyncHandler(adminController.listarSucursales));
-router.post('/api/admin/sucursales', requireAdminAuth, asyncHandler(adminController.crearSucursal));
+router.post('/api/admin/sucursales', requireAdminAuth, requirePermiso('configuracion'), asyncHandler(adminController.crearSucursal));
 router.patch(
   '/api/admin/sucursales/:id',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('configuracion'),
   asyncHandler(adminController.actualizarSucursal)
 );
 router.get(
   '/api/admin/intentos-rechazados',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('configuracion'),
   asyncHandler(adminController.listarIntentosRechazados)
 );
 
 // Horarios del trabajador (versiones con fecha de vigencia)
 router.get(
   '/api/admin/workers/:id/horarios',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'),
   asyncHandler(adminController.listarHorariosTrabajador)
 );
 router.post(
   '/api/admin/workers/:id/horarios',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'),
   asyncHandler(adminController.crearHorarioTrabajador)
 );
 router.put(
   '/api/admin/workers/:id/horarios/:versionId',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'),
   asyncHandler(adminController.actualizarHorarioTrabajador)
 );
 router.delete(
   '/api/admin/workers/:id/horarios/:versionId',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'),
   asyncHandler(adminController.eliminarHorarioTrabajador)
 );
 
 // Excepciones puntuales de horario
 router.get(
   '/api/admin/workers/:id/excepciones',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'),
   asyncHandler(adminController.listarExcepcionesTrabajador)
 );
 router.post(
   '/api/admin/workers/:id/excepciones',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'),
   asyncHandler(adminController.crearExcepcionTrabajador)
 );
 router.delete(
   '/api/admin/workers/:id/excepciones/:excepcionId',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'),
   asyncHandler(adminController.eliminarExcepcionTrabajador)
 );
 
 // Plantillas de turno (Nivel 2)
-router.get('/api/admin/turnos', requireAdminAuth, asyncHandler(adminController.listarTurnos));
-router.post('/api/admin/turnos', requireAdminAuth, asyncHandler(adminController.crearTurno));
+router.get('/api/admin/turnos', requireAdminAuth, requirePermiso('gestionar_horarios'), asyncHandler(adminController.listarTurnos));
+router.post('/api/admin/turnos', requireAdminAuth, requirePermiso('gestionar_horarios'), requireSinRestriccionDeSucursal, asyncHandler(adminController.crearTurno));
 router.patch(
   '/api/admin/turnos/:id',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'), requireSinRestriccionDeSucursal,
   asyncHandler(adminController.actualizarTurno)
 );
 router.delete(
   '/api/admin/turnos/:id',
-  requireAdminAuth,
+  requireAdminAuth, requirePermiso('gestionar_horarios'), requireSinRestriccionDeSucursal,
   asyncHandler(adminController.eliminarTurno)
 );
+
+// Usuarios adicionales de la empresa (solo el admin principal)
+router.get('/admin/usuarios', requireAdminAuth, requirePrincipal, asyncHandler(adminController.paginaUsuarios));
+router.get('/api/admin/usuarios', requireAdminAuth, requirePrincipal, asyncHandler(adminController.listarUsuarios));
+router.post('/api/admin/usuarios', requireAdminAuth, requirePrincipal, asyncHandler(adminController.crearUsuario));
+router.patch('/api/admin/usuarios/:id', requireAdminAuth, requirePrincipal, asyncHandler(adminController.actualizarUsuario));
+router.post(
+  '/api/admin/usuarios/:id/restablecer-password',
+  requireAdminAuth,
+  requirePrincipal,
+  asyncHandler(adminController.restablecerPasswordUsuario)
+);
+router.delete('/api/admin/usuarios/:id', requireAdminAuth, requirePrincipal, asyncHandler(adminController.eliminarUsuario));
 
 // Publico: se muestra en el header tanto del panel admin como del check-in
 router.get('/logo/:empresaId', asyncHandler(adminController.servirLogo));

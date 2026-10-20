@@ -66,7 +66,20 @@ crearForm.addEventListener('submit', async (e) => {
   }
 
   crearForm.reset();
-  await cargarTurnos();
+  await cargarTurnos().then(() =>
+  fetch('/api/auth/me')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((sesion) => {
+      if (!sesion || !sesion.sucursalId) return;
+      // Las plantillas son de toda la empresa: solo lectura para un usuario de una sucursal.
+      document.getElementById('crear-form').closest('.card').hidden = true;
+      document.querySelectorAll('#tabla-turnos input').forEach((el) => {
+        el.disabled = true;
+      });
+      document.querySelectorAll('#tabla-turnos .guardar-btn, #tabla-turnos .eliminar-btn').forEach((el) => el.remove());
+    })
+    .catch(() => {})
+);
 });
 
 tbody.addEventListener('click', async (e) => {

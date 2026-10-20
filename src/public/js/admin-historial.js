@@ -71,6 +71,8 @@ function badgeMarcacion(estado, minutos) {
 const desdeInput = document.getElementById('desde-input');
 const hastaInput = document.getElementById('hasta-input');
 let conRefrigerio = false;
+// Permisos de la sesion (se cargan al inicio); por defecto todo visible.
+let puede = { corregir_marcaciones: true, aprobar_horas_extra: true };
 let etiquetaExtra1 = 'Extra 25%';
 let etiquetaExtra2 = 'Extra 35%';
 const workerInput = document.getElementById('worker-input');
@@ -175,6 +177,13 @@ function lugarMovil(r) {
   return partes.length ? `<span class="sub-fila solo-movil">📍 ${partes.join(' • ')}</span>` : '';
 }
 
+// "Corregido por Juan · 20/10 09:15" bajo la entrada, si un usuario la corrigio.
+function corregidoPorHtml(r) {
+  if (!r.editado_en || !r.editado_por_nombre) return '';
+  const cuando = new Date(r.editado_en).toLocaleString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return `<span class="auditoria">Corregido por ${escapeHtml(r.editado_por_nombre)} · ${cuando}</span>`;
+}
+
 function filaHtml(r) {
   const tieneExtra = Number(r.horas_extra_25) > 0 || Number(r.horas_extra_35) > 0;
   return `
@@ -182,24 +191,24 @@ function filaHtml(r) {
       <td class="c-fecha">${formatearFecha(r.fecha)}${lugarMovil(r)}</td>
       <td class="c-nombre"><div class="name-cell"><div class="name-avatar">${iniciales(r.nombre)}</div><div><span class="nombre-fila">${escapeHtml(r.nombre)}</span><span class="sub-fila solo-movil">DNI: ${escapeHtml(r.dni)}</span></div></div></td>
       <td class="c-dni">${escapeHtml(r.dni)}</td>
-      <td class="celda-entrada c-entrada sep-movil" data-label="Entrada">${formatearHora(r.creado_en)}${badgeMarcacion(r.entrada_estado, r.entrada_minutos)}</td>
+      <td class="celda-entrada c-entrada sep-movil" data-label="Entrada">${formatearHora(r.creado_en)}${badgeMarcacion(r.entrada_estado, r.entrada_minutos)}${corregidoPorHtml(r)}</td>
       <td class="celda-salida c-salida sep-movil" data-label="Salida">${r.hora_salida ? formatearHora(r.hora_salida) : '—'}${badgeMarcacion(r.salida_estado, r.salida_minutos)}</td>
       <td class="c-pendientes sep-movil" data-label="Pendientes">${r.horas_pendientes === null || r.horas_pendientes === undefined ? '—' : `${Number(r.horas_pendientes).toFixed(2)}h`}</td>
       <td class="c-extra1 sep-movil" data-label="${etiquetaExtra1}">${Number(r.horas_extra_25).toFixed(2)}</td>
       <td class="c-extra2 sep-movil" data-label="${etiquetaExtra2}">${Number(r.horas_extra_35).toFixed(2)}</td>
-      <td class="celda-estado c-estado sep-movil" data-label="Horas extra">${tieneExtra ? badgeEstado(r.horas_extra_estado) : '—'}</td>
+      <td class="celda-estado c-estado sep-movil" data-label="Horas extra">${tieneExtra ? badgeEstado(r.horas_extra_estado) : '—'}${tieneExtra && r.aprobado_por_nombre && r.horas_extra_estado !== 'pendiente' ? `<span class="auditoria">${r.horas_extra_estado === 'aprobado' ? 'Aprobado' : 'Rechazado'} por ${escapeHtml(r.aprobado_por_nombre)}</span>` : ''}</td>
       ${celdasRefrigerioHtml(r)}
       <td class="c-distancia">${r.entrada_distancia_m === null || r.entrada_distancia_m === undefined ? '—' : `${Number(r.entrada_distancia_m).toFixed(0)} m`}</td>
       <td class="c-sucursal">${r.sucursal_nombre ? escapeHtml(r.sucursal_nombre) : '—'}</td>
       <td class="celda-acciones c-acciones">
-        <button type="button" class="boton-mini secundario editar-btn">Editar</button>
+        ${puede.corregir_marcaciones ? '<button type="button" class="boton-mini secundario editar-btn">Editar</button>' : ''}
         ${
-          tieneExtra && r.horas_extra_estado !== 'aprobado'
+          puede.aprobar_horas_extra && tieneExtra && r.horas_extra_estado !== 'aprobado'
             ? '<button type="button" class="boton-mini aprobar-btn">Aprobar</button>'
             : ''
         }
         ${
-          tieneExtra && r.horas_extra_estado !== 'rechazado'
+          puede.aprobar_horas_extra && tieneExtra && r.horas_extra_estado !== 'rechazado'
             ? '<button type="button" class="boton-mini secundario rechazar-btn">Rechazar</button>'
             : ''
         }
@@ -303,4 +312,12 @@ desdeInput.value = hoyLimaISO();
 hastaInput.value = hoyLimaISO();
 cargarWorkers();
 cargarSucursales();
-cargarConfigRefrigerio().then(buscar);
+Promise.all([
+  cargarConfigRefrigerio(),
+  fetch('/api/auth/me')
+    .then((r) => (r.ok ? r.json() : null))
+    .then((sesion) => {
+      if (sesion && sesion.puede) puede = sesion.puede;
+    })
+    .catch(() => {})
+]).then(buscar);

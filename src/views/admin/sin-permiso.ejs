@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sin permiso — DANA</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: '' }) %>
+
+    <main class="main">
+      <div class="card" style="max-width:520px; margin:40px auto; text-align:center;">
+        <div class="estado-icono" style="background:var(--amber-bg);">🔒</div>
+        <h1>No tienes permiso para esta sección</h1>
+        <p class="subtitulo">Pídele al administrador principal de tu empresa que te dé acceso.</p>
+        <a href="/admin" class="boton secundario">Ir al inicio</a>
+      </div>
+    </main>
+  </div>
+  <script>
+    document.getElementById('logout-link').addEventListener('click', async (e) => {
+      e.preventDefault();
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/admin/login';
+    });
+  </script>
+</body>
+</html>

@@ -24,16 +24,22 @@ function selectorEstadoHtml(e) {
 }
 
 function adminsHtml(e) {
-  if (!e.admins || e.admins.length === 0) return '—';
+  const cupo = `
+    <div class="admin-fila">
+      <span>Usuarios adicionales permitidos:</span>
+      <input type="number" class="input-limite" data-empresa="${e.id}" min="0" max="20" value="${e.limite_usuarios_adicionales ?? 1}" style="width:70px; margin:0;" />
+      <button type="button" class="boton-mini secundario guardar-limite-btn" data-empresa="${e.id}">Guardar</button>
+    </div>`;
+  if (!e.admins || e.admins.length === 0) return '—' + cupo;
   return e.admins
     .map(
       (a) => `
       <div class="admin-fila">
-        <span>${escapeHtml(a.email)}${a.debeCambiarPassword ? ' <span class="badge badge-pendiente" title="Debe cambiar su contraseña temporal">Temporal</span>' : ''}</span>
+        <span>${escapeHtml(a.nombre ? a.nombre + ' · ' + a.email : a.email)} <span class="badge ${a.rol === 'principal' ? 'badge-aprobado' : 'badge-a_tiempo'}">${a.rol === 'principal' ? 'Principal' : 'Adicional'}</span>${a.activo === false ? ' <span class="badge badge-rechazado">Desactivado</span>' : ''}${a.debeCambiarPassword ? ' <span class="badge badge-pendiente" title="Debe cambiar su contraseña temporal">Temporal</span>' : ''}</span>
         <button type="button" class="boton-mini secundario restablecer-btn" data-admin="${a.id}" data-email="${escapeHtml(a.email)}">Restablecer contraseña</button>
       </div>`
     )
-    .join('');
+    .join('') + cupo;
 }
 
 async function cargarEmpresas() {
@@ -103,6 +109,23 @@ tablaEmpresas.addEventListener('change', async (e) => {
 });
 
 tablaEmpresas.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('guardar-limite-btn')) {
+    const input = tablaEmpresas.querySelector(`.input-limite[data-empresa="${e.target.dataset.empresa}"]`);
+    empresasError.innerHTML = '';
+    const resp = await fetch(`/api/superadmin/empresas/${e.target.dataset.empresa}/limite-usuarios`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limite: Number(input.value) })
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      empresasError.innerHTML = `<div class="error">${escapeHtml(data.error || 'No se pudo guardar el límite')}</div>`;
+      return;
+    }
+    e.target.textContent = 'Guardado ✓';
+    setTimeout(() => { e.target.textContent = 'Guardar'; }, 1500);
+    return;
+  }
   if (!e.target.classList.contains('restablecer-btn')) return;
   const btn = e.target;
   const email = btn.dataset.email;

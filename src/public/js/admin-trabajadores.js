@@ -9,6 +9,7 @@ const buscarInput = document.getElementById('buscar-input');
 let workersCache = [];
 let sucursalesCache = [];
 let config = null; // configuracion de la empresa (obreros)
+let puede = { gestionar_trabajadores: true, gestionar_horarios: true }; // de la sesion
 const CATEGORIAS = { operario: 'Operario', oficial: 'Oficial', peon: 'Peón' };
 
 function conObreros() {
@@ -113,12 +114,28 @@ function renderWorkers(workers) {
         </tr>`
     )
     .join('');
+  aplicarSoloLectura();
+}
+
+// Sin permiso para gestionar trabajadores: campos de solo lectura, sin Guardar
+// ni Desvincular. Sin permiso de horarios: sin enlace "Configurar".
+function aplicarSoloLectura() {
+  if (!puede.gestionar_trabajadores) {
+    tbody.querySelectorAll('select, input').forEach((el) => {
+      el.disabled = true;
+    });
+    tbody.querySelectorAll('.guardar-btn, .desvincular-btn').forEach((el) => el.remove());
+  }
+  if (!puede.gestionar_horarios) {
+    tbody.querySelectorAll('a[href$="/horario"]').forEach((a) => a.remove());
+  }
 }
 
 async function cargarWorkers() {
   if (!config) {
-    const respConfig = await fetch('/api/admin/empresa/configuracion');
+    const [respConfig, respSesion] = await Promise.all([fetch('/api/admin/empresa/configuracion'), fetch('/api/auth/me')]);
     if (respConfig.ok) config = await respConfig.json();
+    if (respSesion.ok) puede = (await respSesion.json()).puede || puede;
     renderEncabezado();
   }
   if (sucursalesCache.length === 0) {

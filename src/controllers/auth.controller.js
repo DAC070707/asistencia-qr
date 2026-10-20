@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const env = require('../config/env');
 const { errorDeNuevaPassword } = require('../utils/password');
+const { PERMISOS, tienePermiso } = require('../middleware/permisos');
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -28,7 +29,7 @@ async function login(req, res) {
     return res.status(400).json({ error: 'Email y password son requeridos' });
   }
 
-  const admin = await db('admins').where({ email: String(email).toLowerCase() }).first();
+  const admin = await db('admins').where({ email: String(email).toLowerCase() }).whereNull('eliminado_en').first();
   if (!admin) {
     return res.status(401).json({ error: 'Credenciales invalidas' });
   }
@@ -36,6 +37,10 @@ async function login(req, res) {
   const ok = await bcrypt.compare(password, admin.password_hash);
   if (!ok) {
     return res.status(401).json({ error: 'Credenciales invalidas' });
+  }
+
+  if (!admin.activo) {
+    return res.status(403).json({ error: 'Tu usuario está desactivado. Contacta al administrador de tu empresa.' });
   }
 
   const empresa = await db('empresas').where({ id: admin.empresa_id }).first('estado_cuenta');
@@ -57,8 +62,10 @@ function logout(req, res) {
   return res.json({ ok: true });
 }
 
+// Datos de la sesion para que cada pantalla oculte lo que el usuario no puede hacer.
 function me(req, res) {
-  return res.json({ ...req.admin, debeCambiarPassword: Boolean(res.locals.debeCambiarPassword) });
+  const puede = Object.fromEntries(['ver', ...PERMISOS].map((p) => [p, tienePermiso(req.admin, p)]));
+  return res.json({ ...req.admin, puede, debeCambiarPassword: Boolean(res.locals.debeCambiarPassword) });
 }
 
 // El admin cambia su propia contrasena. Cierra las demas sesiones abiertas

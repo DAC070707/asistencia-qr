@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Usuarios — DANA</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <%- include('../partials/sidebar', { active: 'usuarios' }) %>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Equipo</p>
+          <h1>Usuarios</h1>
+          <p class="topbar-sub">Crea usuarios para tu equipo y elige qué puede hacer cada uno. Solo tú (administrador principal) puedes gestionarlos.</p>
+        </div>
+        <div class="empresa-chip">
+          <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="10" height="18" rx="1"/><path d="M14 8h6v13h-6"/><path d="M7.5 7h1M11 7h1M7.5 11h1M11 11h1M7.5 15h1M11 15h1"/></svg></div>
+          <span><%= empresaNombre %></span>
+        </div>
+      </div>
+
+      <div id="usuarios-aviso"></div>
+
+      <div class="card" id="form-card">
+        <div class="card-head">
+          <h2 style="margin:0;" id="form-titulo">Nuevo usuario</h2>
+          <span class="badge badge-pendiente" id="cupo-badge">—</span>
+        </div>
+        <p class="card-sub" id="cupo-lleno" hidden>Ya usaste todos tus usuarios adicionales. Para tener más, comunícate con Dana.</p>
+        <div id="form-error"></div>
+        <form id="usuario-form">
+          <div class="fila-acciones">
+            <label style="margin:0; flex:1; min-width:180px;">Nombre
+              <input type="text" id="u-nombre" required minlength="2" style="margin:0;" />
+            </label>
+            <label style="margin:0; flex:1; min-width:200px;" id="u-email-label">Correo
+              <input type="email" id="u-email" autocomplete="off" style="margin:0;" />
+            </label>
+            <label style="margin:0; flex:1; min-width:180px;" id="u-password-label">Contraseña inicial
+              <input type="text" id="u-password" autocomplete="new-password" minlength="8" style="margin:0;" />
+            </label>
+          </div>
+          <p class="card-sub" id="u-password-ayuda" style="margin-top:-6px; font-size:.8rem;">Mínimo 8 caracteres. Al entrar por primera vez se le pedirá crear su propia contraseña.</p>
+
+          <label style="margin:0 0 6px;">Perfil</label>
+          <div class="perfiles" id="perfiles">
+            <button type="button" class="boton-mini secundario" data-perfil="visualizacion">Visualización</button>
+            <button type="button" class="boton-mini secundario" data-perfil="corrector">Corrector</button>
+            <button type="button" class="boton-mini secundario" data-perfil="editor">Editor</button>
+            <button type="button" class="boton-mini secundario" data-perfil="supervisor">Supervisor</button>
+            <button type="button" class="boton-mini secundario" data-perfil="personalizado">Personalizado</button>
+          </div>
+
+          <div class="permisos-lista" id="permisos-lista">
+            <label class="permiso"><input type="checkbox" checked disabled /> <span><b>Ver y descargar</b> · Hoy, Historial y Excel (siempre incluido)</span></label>
+            <label class="permiso"><input type="checkbox" value="corregir_marcaciones" /> <span><b>Corregir marcaciones</b> · editar entrada y salida en el Historial</span></label>
+            <label class="permiso"><input type="checkbox" value="aprobar_horas_extra" /> <span><b>Aprobar horas extra</b> · aprobar o rechazar</span></label>
+            <label class="permiso"><input type="checkbox" value="gestionar_horarios" /> <span><b>Gestionar horarios</b> · horarios, excepciones y turnos</span></label>
+            <label class="permiso"><input type="checkbox" value="gestionar_trabajadores" /> <span><b>Gestionar trabajadores</b> · activar, sucursal, fecha de ingreso, horas extra, desvincular celular</span></label>
+            <label class="permiso"><input type="checkbox" value="administrar_qr" /> <span><b>Administrar el QR</b> · invalidar y generar un QR nuevo</span></label>
+            <label class="permiso"><input type="checkbox" value="configuracion" /> <span><b>Configuración de la empresa</b> · logo, tolerancia, refrigerio, sucursales, obreros</span></label>
+          </div>
+
+          <div class="fila-acciones">
+            <label style="margin:0; flex:1; min-width:200px;">Sucursal
+              <select id="u-sucursal" style="margin:0;">
+                <option value="">Todas las sucursales</option>
+              </select>
+            </label>
+          </div>
+          <p class="card-sub" id="u-sucursal-ayuda" hidden style="margin-top:-6px; font-size:.8rem;">Limitado a una sucursal: solo verá y gestionará a los trabajadores y el QR de ese local, y no puede tener acceso a la configuración de la empresa.</p>
+
+          <div class="fila-acciones" style="margin-bottom:0;">
+            <button type="submit" id="u-guardar">Crear usuario</button>
+            <button type="button" class="secundario" id="u-cancelar" hidden>Cancelar</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card">
+        <h2>Usuarios de tu empresa</h2>
+        <div style="overflow-x:auto;">
+          <table class="tabla-movil">
+            <thead>
+              <tr><th>Usuario</th><th>Rol</th><th>Puede</th><th>Sucursal</th><th>Estado</th><th></th></tr>
+            </thead>
+            <tbody id="tabla-usuarios">
+              <tr><td colspan="6">Cargando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="/js/admin-usuarios.js"></script>
+</body>
+</html>
