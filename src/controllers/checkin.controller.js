@@ -152,6 +152,16 @@ async function validarGeolocalizacion(sucursalId, body) {
   };
 }
 
+// Si la cuenta de la empresa esta suspendida (falta de pago), no se permite
+// marcar: se muestra un aviso y no se toca nada. Devuelve true si respondio.
+async function servicioSuspendido(res, codigo) {
+  const empresa = await db('empresas').where({ id: codigo.empresa_id }).first('estado_cuenta');
+  if (empresa?.estado_cuenta !== 'suspendida') return false;
+  res.set('Cache-Control', 'no-store');
+  res.status(403).render('checkin/servicio-suspendido', { logoEmpresaUrl: `/logo/${codigo.empresa_id}` });
+  return true;
+}
+
 // Las pantallas del flujo de marcacion no deben quedar en la cache del
 // navegador: al ir "atras" se vuelven a pedir y el servidor decide.
 function sinCache(res) {
@@ -176,6 +186,7 @@ async function mostrarCheckin(req, res) {
   if (!codigo) {
     return res.render('checkin/codigo-invalido');
   }
+  if (await servicioSuspendido(res, codigo)) return;
 
   // Llega desde el boton "Abrir en Chrome/Safari" con un pase: instala la
   // llave del trabajador en este navegador y recarga sin el pase en la URL.
@@ -217,6 +228,7 @@ async function identificar(req, res) {
   if (!codigo) {
     return res.render('checkin/codigo-invalido');
   }
+  if (await servicioSuspendido(res, codigo)) return;
 
   const escaneo = String(req.body.escaneo || '');
   const previa = await escaneoService.validar(escaneo, codigo.id, null);
@@ -298,6 +310,7 @@ async function marcar(req, res) {
   if (!codigo) {
     return res.render('checkin/codigo-invalido');
   }
+  if (await servicioSuspendido(res, codigo)) return;
 
   const escaneo = String(req.body.escaneo || '');
   const worker = await workerDesdeCookie(req, codigo.empresa_id);
@@ -443,6 +456,8 @@ const MOTIVOS_DEL_NAVEGADOR = ['sin_permiso', 'sin_senal', 'tiempo_agotado', 'na
 async function registrarIntentoFallido(req, res) {
   const codigo = await dailyCodeService.validarToken(req.params.token);
   if (!codigo) return res.status(204).end();
+  const empresa = await db('empresas').where({ id: codigo.empresa_id }).first('estado_cuenta');
+  if (empresa?.estado_cuenta === 'suspendida') return res.status(204).end();
 
   const worker = await workerDesdeCookie(req, codigo.empresa_id);
   const motivo = String(req.body?.motivo || '');

@@ -143,10 +143,29 @@
           </table>
         </div>
       </div>
+      <div class="card" id="mi-cuenta">
+        <h2>Mi cuenta</h2>
+        <p class="card-sub">Cuenta: <strong><%= admin.email %></strong>. Cambia tu contraseña cuando quieras; al hacerlo se cierran las sesiones abiertas en otros equipos.</p>
+        <div id="mi-cuenta-error"></div>
+        <form id="mi-cuenta-form" data-endpoint="/api/auth/password" class="fila-acciones" style="align-items:end;">
+          <label style="margin:0; flex:1; min-width:180px;">Contraseña actual
+            <input type="password" id="clave-actual" autocomplete="current-password" required style="margin:0;" />
+          </label>
+          <label style="margin:0; flex:1; min-width:180px;">Nueva contraseña
+            <input type="password" id="clave-nueva" autocomplete="new-password" minlength="8" required style="margin:0;" />
+          </label>
+          <label style="margin:0; flex:1; min-width:180px;">Repite la nueva
+            <input type="password" id="clave-confirmacion" autocomplete="new-password" minlength="8" required style="margin:0;" />
+          </label>
+          <button type="submit" id="mi-cuenta-btn">Cambiar contraseña</button>
+        </form>
+        <p class="card-sub" style="font-size:.8rem; margin:0;">Mínimo 8 caracteres.</p>
+      </div>
     </main>
   </div>
 
   <script>window.DANA_GOOGLE_MAPS_KEY = <%- JSON.stringify(googleMapsApiKey || null) %>;</script>
   <script src="/js/admin-configuracion.js"></script>
+  <script src="/js/mi-cuenta.js"></script>
 </body>
 </html>

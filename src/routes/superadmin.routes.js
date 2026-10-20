@@ -22,5 +22,20 @@ router.post(
   requireSuperAdminAuth,
   asyncHandler(superadminController.crearEmpresa)
 );
+router.patch(
+  '/api/superadmin/empresas/:id/estado',
+  requireSuperAdminAuth,
+  asyncHandler(superadminController.cambiarEstadoEmpresa)
+);
+router.post(
+  '/api/superadmin/admins/:id/restablecer-password',
+  requireSuperAdminAuth,
+  asyncHandler(superadminController.restablecerPasswordAdmin)
+);
+router.patch(
+  '/api/superadmin/password',
+  requireSuperAdminAuth,
+  asyncHandler(superadminController.cambiarPassword)
+);
 
 module.exports = router;

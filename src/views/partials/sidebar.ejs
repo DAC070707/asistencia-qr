@@ -41,6 +41,10 @@
     </button>
     <div class="menu-usuario" id="menu-usuario" hidden>
       <% if (__nombreEmpresa) { %><p class="menu-usuario-empresa"><%= __nombreEmpresa %></p><% } %>
+      <a class="menu-usuario-opcion" href="<%= __esSuper ? '/superadmin#mi-cuenta' : '/admin/configuracion#mi-cuenta' %>">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        Cambiar contraseña
+      </a>
       <button type="button" class="menu-usuario-salir" id="salir-movil">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><%- __icons.logout %></svg>
         Salir
@@ -49,6 +53,18 @@
   </div>
 </header>
 <div class="menu-fondo" id="menu-fondo" hidden></div>
+<% if (!__esSuper && typeof estadoCuenta !== 'undefined' && estadoCuenta === 'pago_pendiente') { %>
+  <div class="aviso-cuenta aviso-cuenta-pago" data-aviso-cuenta role="status">
+    <strong>Tu mensualidad de Dana está pendiente.</strong>
+    Regulariza tu pago para evitar la suspensión del servicio.
+  </div>
+<% } %>
+<% if (!__esSuper && typeof debeCambiarPassword !== 'undefined' && debeCambiarPassword) { %>
+  <div class="aviso-cuenta aviso-cuenta-clave" data-aviso-cuenta role="status">
+    <strong>Estás usando una contraseña temporal.</strong>
+    <a href="/admin/configuracion#mi-cuenta">Crea una nueva</a> para proteger tu cuenta.
+  </div>
+<% } %>
 
 <aside class="sidebar" id="menu-lateral">
   <button type="button" class="sidebar-cerrar" id="cerrar-menu" aria-label="Cerrar menú">
@@ -75,6 +91,14 @@
   </a>
 </aside>
 <script>
+  // Avisos de la cuenta (pago pendiente, contraseña temporal): arriba del contenido.
+  document.addEventListener('DOMContentLoaded', function () {
+    var main = document.querySelector('.main');
+    if (!main) return;
+    var avisos = document.querySelectorAll('[data-aviso-cuenta]');
+    for (var i = avisos.length - 1; i >= 0; i--) main.insertBefore(avisos[i], main.firstChild);
+  });
+
   // Celular: menu lateral deslizable y menu de usuario.
   (function () {
     var cuerpo = document.body;

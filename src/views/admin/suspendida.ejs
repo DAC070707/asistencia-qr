@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Servicio suspendido — DANA</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <div class="auth-shell">
+    <div class="auth-card" style="text-align:center;">
+      <img src="/dana.png" alt="Dana" class="auth-logo" />
+      <div class="estado-icono" style="background:var(--amber-bg);">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+      </div>
+      <h1>Servicio suspendido</h1>
+      <p class="subtitulo">El servicio de tu empresa está suspendido. Comunícate con Dana para reactivarlo.</p>
+      <p class="subtitulo" style="font-size:.85rem;">Tu información no se ha perdido: al reactivarse, todo vuelve a estar disponible.</p>
+      <button type="button" id="salir-btn" class="secundario" style="width:100%; margin-top:8px;">Salir</button>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('salir-btn').addEventListener('click', async function () {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      window.location.href = '/admin/login';
+    });
+  </script>
+</body>
+</html>

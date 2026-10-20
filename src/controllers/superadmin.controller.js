@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const env = require('../config/env');
+const { errorDeNuevaPassword, generarTemporal } = require('../utils/password');
 
 const COOKIE_OPTS = {
   httpOnly: true,
@@ -36,14 +37,17 @@ async function login(req, res) {
     return res.status(401).json({ error: 'Credenciales invalidas' });
   }
 
+  emitirSesion(res, superAdmin);
+  return res.json({ id: superAdmin.id, email: superAdmin.email });
+}
+
+function emitirSesion(res, superAdmin) {
   const token = jwt.sign(
     { superAdminId: superAdmin.id, email: superAdmin.email },
     env.jwtSecret,
     { expiresIn: '12h' }
   );
-
   res.cookie('superadmin_token', token, COOKIE_OPTS);
-  return res.json({ id: superAdmin.id, email: superAdmin.email });
 }
 
 function logout(req, res) {
@@ -63,7 +67,64 @@ async function listarEmpresas(req, res) {
       )
     )
     .orderBy('empresas.creado_en', 'desc');
+  const admins = await db('admins').select('id', 'email', 'empresa_id', 'debe_cambiar_password').orderBy('email');
+  for (const e of empresas) {
+    e.admins = admins.filter((a) => a.empresa_id === e.id).map((a) => ({ id: a.id, email: a.email, debeCambiarPassword: a.debe_cambiar_password }));
+  }
   res.json(empresas);
+}
+
+const ESTADOS_CUENTA = ['activa', 'pago_pendiente', 'suspendida'];
+
+// Activa / pago pendiente (solo aviso) / suspendida (bloquea panel y marcacion).
+// No borra nada: al reactivar todo vuelve a funcionar igual.
+async function cambiarEstadoEmpresa(req, res) {
+  const { estadoCuenta } = req.body || {};
+  if (!ESTADOS_CUENTA.includes(estadoCuenta)) {
+    return res.status(400).json({ error: 'Estado inválido' });
+  }
+  const [empresa] = await db('empresas')
+    .where({ id: req.params.id })
+    .update({ estado_cuenta: estadoCuenta, activo: estadoCuenta !== 'suspendida', estado_cuenta_en: db.fn.now() })
+    .returning(['id', 'nombre', 'estado_cuenta', 'activo']);
+  if (!empresa) return res.status(404).json({ error: 'Empresa no encontrada' });
+  res.json(empresa);
+}
+
+// Genera una contrasena temporal para un admin que olvido la suya. Se
+// devuelve una sola vez; el admin debe cambiarla al entrar y sus sesiones
+// abiertas se cierran.
+async function restablecerPasswordAdmin(req, res) {
+  const admin = await db('admins').where({ id: req.params.id }).first('id', 'email');
+  if (!admin) return res.status(404).json({ error: 'Admin no encontrado' });
+  const temporal = generarTemporal();
+  await db('admins')
+    .where({ id: admin.id })
+    .update({
+      password_hash: await bcrypt.hash(temporal, 10),
+      password_cambiado_en: new Date(Math.floor(Date.now() / 1000) * 1000),
+      debe_cambiar_password: true
+    });
+  res.json({ email: admin.email, passwordTemporal: temporal });
+}
+
+// El super-admin cambia su propia contrasena.
+async function cambiarPassword(req, res) {
+  const { actual, nueva, confirmacion } = req.body || {};
+  const superAdmin = await db('super_admins').where({ id: req.superAdmin.id }).first();
+  if (!superAdmin || !actual || !(await bcrypt.compare(String(actual), superAdmin.password_hash))) {
+    return res.status(400).json({ error: 'La contraseña actual no es correcta' });
+  }
+  const error = errorDeNuevaPassword(nueva, confirmacion);
+  if (error) return res.status(400).json({ error });
+  if (await bcrypt.compare(nueva, superAdmin.password_hash)) {
+    return res.status(400).json({ error: 'La nueva contraseña debe ser distinta de la actual' });
+  }
+  await db('super_admins')
+    .where({ id: superAdmin.id })
+    .update({ password_hash: await bcrypt.hash(nueva, 10), password_cambiado_en: new Date(Math.floor(Date.now() / 1000) * 1000) });
+  emitirSesion(res, superAdmin);
+  res.json({ ok: true });
 }
 
 async function crearEmpresa(req, res) {
@@ -102,4 +163,14 @@ async function crearEmpresa(req, res) {
   });
 }
 
-module.exports = { paginaLogin, paginaDashboard, login, logout, listarEmpresas, crearEmpresa };
+module.exports = {
+  paginaLogin,
+  paginaDashboard,
+  login,
+  logout,
+  listarEmpresas,
+  crearEmpresa,
+  cambiarEstadoEmpresa,
+  restablecerPasswordAdmin,
+  cambiarPassword
+};

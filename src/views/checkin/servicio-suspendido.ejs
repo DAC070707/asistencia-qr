@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Registro no disponible — DANA</title>
+  <link rel="icon" href="/favicon.ico" sizes="any" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <%- include('../partials/header', { logoEmpresaUrl: typeof logoEmpresaUrl !== 'undefined' ? logoEmpresaUrl : null }) %>
+
+  <div class="contenedor">
+    <div class="tarjeta" style="margin-top: 40px; text-align:center;">
+      <div class="estado-icono" style="background:var(--amber-bg);">⏸️</div>
+      <h1>Registro no disponible</h1>
+      <p class="subtitulo">El registro de asistencia de esta empresa no está disponible por el momento. Avísale a tu administrador.</p>
+      <p style="margin-top:20px;">
+        <a href="/mi-historial" style="color:var(--blue); text-decoration:none; font-weight:600; font-size:0.85rem;">Ver mis horas extra y mi historial</a>
+      </p>
+    </div>
+  </div>
+
+  <%- include('../partials/footer') %>
+</body>
+</html>

@@ -38,18 +38,39 @@
 
       <div class="card">
         <h2>Empresas</h2>
+        <p class="card-sub"><b>Pago pendiente</b> muestra un aviso al cliente sin bloquear nada. <b>Suspendida</b> bloquea su panel y la marcación de sus trabajadores; no se borra ningún dato y al reactivarla todo vuelve igual.</p>
+        <div id="empresas-error"></div>
         <table class="tabla-movil">
           <thead>
-            <tr><th>Nombre</th><th>Activo</th><th>Trabajadores</th><th>Marcaciones</th><th>Creada</th></tr>
+            <tr><th>Nombre</th><th>Estado de la cuenta</th><th>Trabajadores</th><th>Marcaciones</th><th>Creada</th><th>Administradores</th></tr>
           </thead>
           <tbody id="tabla-empresas">
-            <tr><td colspan="5">Cargando...</td></tr>
+            <tr><td colspan="6">Cargando...</td></tr>
           </tbody>
         </table>
+      </div>
+      <div class="card" id="mi-cuenta">
+        <h2>Mi cuenta</h2>
+        <p class="card-sub">Cuenta: <strong><%= superAdmin.email %></strong>. Cambia tu contraseña cuando quieras; al hacerlo se cierran las sesiones abiertas en otros equipos.</p>
+        <div id="mi-cuenta-error"></div>
+        <form id="mi-cuenta-form" data-endpoint="/api/superadmin/password" class="fila-acciones" style="align-items:end;">
+          <label style="margin:0; flex:1; min-width:180px;">Contraseña actual
+            <input type="password" id="clave-actual" autocomplete="current-password" required style="margin:0;" />
+          </label>
+          <label style="margin:0; flex:1; min-width:180px;">Nueva contraseña
+            <input type="password" id="clave-nueva" autocomplete="new-password" minlength="8" required style="margin:0;" />
+          </label>
+          <label style="margin:0; flex:1; min-width:180px;">Repite la nueva
+            <input type="password" id="clave-confirmacion" autocomplete="new-password" minlength="8" required style="margin:0;" />
+          </label>
+          <button type="submit" id="mi-cuenta-btn">Cambiar contraseña</button>
+        </form>
+        <p class="card-sub" style="font-size:.8rem; margin:0;">Mínimo 8 caracteres.</p>
       </div>
     </main>
   </div>
 
   <script src="/js/superadmin-dashboard.js"></script>
+  <script src="/js/mi-cuenta.js"></script>
 </body>
 </html>
